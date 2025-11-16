@@ -340,4 +340,154 @@ async function saveFormData() {
         }
     });
     
-    // 3. Atual
+    // 3. Atualizar Estado
+    formDataState[activeWindowName] = currentData;
+    updateWindowStatus(activeWindowName, isComplete);
+    
+    // 4. Fechar Modal
+    modalOverlay.style.display = 'none';
+    checkAllSectionsComplete();
+}
+
+/**
+ * Atualiza o status visual de uma seção no grid.
+ */
+function updateWindowStatus(sectionKey, isComplete) {
+    const card = document.getElementById(`card-${sectionKey}`);
+    const statusP = document.getElementById(`status-${sectionKey}`);
+    
+    if (card && statusP) {
+        if (isComplete) {
+            card.classList.remove('incomplete');
+            card.classList.add('complete');
+            statusP.textContent = 'Completo';
+        } else {
+            card.classList.remove('complete');
+            card.classList.add('incomplete');
+            statusP.textContent = 'Faltando dados';
+        }
+    }
+}
+
+/**
+ * Verifica se todas as seções estão completas para habilitar o botão de envio.
+ */
+function checkAllSectionsComplete() {
+    const allComplete = Object.keys(FORM_STRUCTURE).every(key => {
+        const card = document.getElementById(`card-${key}`);
+        return card && card.classList.contains('complete');
+    });
+
+    submitReportButton.disabled = !allComplete;
+    if (submitReportButton.disabled) {
+        submitReportButton.textContent = 'Preencha todos os campos';
+    } else {
+        submitReportButton.textContent = 'Enviar Relatório';
+    }
+}
+
+/**
+ * Lida com o envio final de todos os dados e arquivos para o Apps Script.
+ */
+async function submitReport() {
+    if (submitReportButton.disabled) return;
+
+    // Confirmação final
+    if (!confirm("Tem certeza que deseja enviar o relatório? Não será possível editar depois.")) {
+        return;
+    }
+
+    const finalFormData = new FormData();
+
+    // 1. Coletar todos os dados de texto e arquivos
+    Object.keys(FORM_STRUCTURE).forEach(sectionKey => {
+        const sectionData = formDataState[sectionKey];
+        const sectionFields = FORM_STRUCTURE[sectionKey].fields;
+
+        sectionFields.forEach(field => {
+            const fieldName = field.name;
+            
+            if (field.type === 'file' && fieldName !== 'assinatura') {
+                // 1a. Tratar arquivos de anomalia (pegar do input DOM)
+                const inputElement = document.getElementById(fieldName);
+                if (inputElement && inputElement.files[0]) {
+                    finalFormData.append(fieldName, inputElement.files[0], inputElement.files[0].name);
+                }
+            } else if (fieldName === 'assinatura' && signatureBlob) {
+                // 1b. Tratar Assinatura (usar o blob salvo)
+                finalFormData.append(fieldName, signatureBlob, signatureBlob.name);
+            } else {
+                // 1c. Tratar dados de texto
+                const fieldValue = sectionData[fieldName] || '';
+                finalFormData.append(fieldName, fieldValue);
+            }
+        });
+    });
+
+    // 2. Exibir o spinner de carregamento
+    showSpinner('Enviando relatório e arquivos. Aguarde...');
+
+    // 3. Enviar para o Apps Script
+    try {
+        // *** SUBSTITUA PELO SEU URL DE IMPLANTAÇÃO DO GOOGLE APPS SCRIPT ***
+        const url = 'SEU_URL_APPS_SCRIPT_DEPLOY'; 
+        const response = await fetch(url, {
+            method: 'POST',
+            body: finalFormData,
+        });
+
+        const result = await response.text();
+
+        if (result.trim() === 'ok') {
+            alert('Relatório enviado com sucesso!');
+            window.location.reload(); 
+        } else {
+            alert('Erro ao enviar o relatório. Resposta: ' + result);
+        }
+
+    } catch (error) {
+        alert('Erro de rede ou servidor: ' + error.message);
+    } finally {
+        hideSpinner();
+    }
+}
+
+// =========================================================================
+// 5. EVENT LISTENERS E INICIALIZAÇÃO
+// =========================================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    
+    // 1. Inicia o grid principal
+    initializeGrid();
+    
+    // 2. Define o valor inicial da data
+    const today = new Date().toISOString().split('T')[0];
+    const dataField = FORM_STRUCTURE['dados-iniciais'].fields.find(f => f.name === 'data');
+    if (dataField) dataField.default = today;
+    
+    // 3. Eventos do Modal
+    if (modalClose) modalClose.addEventListener('click', () => modalOverlay.style.display = 'none');
+    if (modalCancel) modalCancel.addEventListener('click', () => modalOverlay.style.display = 'none');
+    
+    if (windowForm) {
+        windowForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            // saveFormData agora é async e lida com a assinatura internamente
+            saveFormData(); 
+        });
+    }
+    
+    // 4. Evento de envio final
+    if (submitReportButton) {
+        submitReportButton.addEventListener('click', submitReport);
+    }
+    
+    // 5. Evento do Jump Menu
+    if (jumpMenu) {
+        jumpMenu.addEventListener('change', (e) => jumpToField(e.target.value));
+    }
+
+    // 6. Atualiza o status inicial do botão de envio
+    checkAllSectionsComplete();
+});
