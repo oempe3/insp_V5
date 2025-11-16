@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Endereço do WebApp para destinatários
     const SCRIPT_URL_DEST =
-      'https://script.google.com/macros/s/AKfycbyUEBHSKhFjzS3Vo00wwx6gJyMyEq0B17pVuOn_TJ0H6NNxC_AKXQler1OMTWJgjOXs/exec';
+      'https://script.google.com/macros/s/AKfycbzJMgFn6SQJqifB4w5IKXHe_3inXxyN2nXPxcrECSg4VDhiKsCJervIbJgRXUx4DQM/exec';
 
     // Valida formato de email simples
     function isValidEmail(email) {
