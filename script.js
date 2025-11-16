@@ -1,4 +1,5 @@
 // ============ CONSTANTES E VARIÁVEIS GLOBAIS ============
+// A FORM_STRUCTURE é carregada de 'data_structure_interno.js'
 const JUMP_MENU_TAGS = []; // Array para armazenar os tags dos equipamentos
 
 // Identifica o tipo de formulário a partir do atributo data-form-type no <body>.
@@ -163,9 +164,268 @@ function updateCompletionStatus() {
     }
 }
 
-// ============ GERAÇÃO DE HTML DO FORMULÁRIO (Funções Omitidas, mas mantidas no seu código) ============
-// As funções createFieldHTML e generateForm foram omitidas aqui para brevidade,
-// pois não continham a falha crítica, mas devem ser mantidas intactas no seu código.
+// ============ GERAÇÃO DE HTML DO FORMULÁRIO (FUNÇÕES CRÍTICAS INSERIDAS) ============
+
+/**
+ * Cria o HTML para um único campo de formulário com base na sua configuração.
+ * @param {Object} fieldConfig Configuração do campo de FORM_STRUCTURE.
+ * @param {string|number|null} currentValue Valor atual do campo.
+ * @returns {string} O HTML completo do grupo de formulário.
+ */
+function createFieldHTML(fieldConfig, currentValue) {
+    const fieldId = `${currentWindowId}-${fieldConfig.name}`;
+    const value = currentValue !== undefined && currentValue !== null ? currentValue : (fieldConfig.default || '');
+    const required = fieldConfig.required ? 'required' : '';
+    const readonly = fieldConfig.readonly ? 'readonly' : '';
+    const placeholder = fieldConfig.placeholder || '';
+    const labelText = fieldConfig.label + (fieldConfig.required ? ' *' : '');
+    let inputHTML = '';
+    let indicatorHTML = '';
+    let unitHTML = '';
+    let helpHTML = '';
+
+    // Adiciona o indicador de status para campos de status
+    if (fieldConfig.type === 'status') {
+        indicatorHTML = `<span id="indicator-${fieldId}" class="status-indicator ${getStatusColorClass(value)}"></span>`;
+    }
+    
+    // Adiciona a unidade para campos de range/número
+    if (fieldConfig.unit) {
+        unitHTML = `<span class="unit">${fieldConfig.unit}</span>`;
+    }
+
+    switch (fieldConfig.type) {
+        case 'text':
+        case 'number':
+        case 'date':
+        case 'time':
+            inputHTML = `<input type="${fieldConfig.type}" id="${fieldId}" name="${fieldConfig.name}" value="${value}" ${required} ${readonly} placeholder="${placeholder}" ${fieldConfig.digits ? `maxlength="${fieldConfig.digits}"` : ''} onchange="handleFieldChange('${fieldConfig.name}', this.value)">`;
+            break;
+        case 'textarea':
+            inputHTML = `<textarea id="${fieldId}" name="${fieldConfig.name}" ${required} placeholder="${placeholder}" rows="3" onchange="handleFieldChange('${fieldConfig.name}', this.value)">${value}</textarea>`;
+            break;
+        case 'select':
+            inputHTML = `<select id="${fieldId}" name="${fieldConfig.name}" ${required} onchange="handleFieldChange('${fieldConfig.name}', this.value)">`;
+            inputHTML += `<option value="" disabled ${value === '' ? 'selected' : ''}>Selecione...</option>`;
+            fieldConfig.options.forEach(option => {
+                const selected = option.toString() === value.toString() ? 'selected' : '';
+                inputHTML += `<option value="${option}" ${selected}>${option}</option>`;
+            });
+            inputHTML += `</select>`;
+            break;
+        case 'range':
+            const rangeMin = fieldConfig.min || 0;
+            const rangeMax = fieldConfig.max || 100;
+            const rangeStep = fieldConfig.step || 1;
+            const displayValue = value === '' ? (fieldConfig.default || rangeMin) : value;
+
+            inputHTML = `
+                <div class="range-container">
+                    <input type="range" id="${fieldId}" name="${fieldConfig.name}" min="${rangeMin}" max="${rangeMax}" step="${rangeStep}" value="${displayValue}" 
+                           oninput="document.getElementById('display-${fieldId}').textContent=this.value; handleFieldChange('${fieldConfig.name}', this.value)" ${required}>
+                    <span class="range-value" id="display-${fieldId}">${displayValue}</span>
+                    ${unitHTML}
+                </div>
+            `;
+            // Remove unitHTML da variável global para evitar duplicação no label
+            unitHTML = ''; 
+            break;
+        case 'status':
+            inputHTML = `<select id="${fieldId}" name="${fieldConfig.name}" ${required} onchange="updateStatusIndicator('${fieldId}', this.value); handleFieldChange('${fieldConfig.name}', this.value)">`;
+            inputHTML += `<option value="" disabled ${value === '' ? 'selected' : ''}>Status...</option>`;
+            fieldConfig.options.forEach(option => {
+                const selected = option.toString() === value.toString() ? 'selected' : '';
+                inputHTML += `<option value="${option}" ${selected}>${option}</option>`;
+            });
+            inputHTML += `</select>`;
+            break;
+        case 'file':
+            // Verifica se existe uma flag de arquivo salva, mesmo que o objeto File não esteja no localStorage
+            const fileSet = value && value.startsWith('FILE_SET_');
+            const fileStatusText = fileSet ? 'Arquivo Selecionado' : 'Nenhum arquivo';
+            const fileStatusClass = fileSet ? 'file-set' : 'file-unset';
+            
+            inputHTML = `
+                <input type="file" id="${fieldId}" name="${fieldConfig.name}" ${required} accept="${fieldConfig.accept || ''}"
+                       onchange="document.getElementById('status-${fieldId}').textContent=this.files.length > 0 ? 'Arquivo Selecionado: ' + this.files[0].name : 'Nenhum arquivo'; 
+                                 document.getElementById('status-${fieldId}').className=this.files.length > 0 ? 'file-status file-set' : 'file-status file-unset'; 
+                                 handleFileChange(this, '${fieldConfig.name}')">
+                <label for="${fieldId}" class="custom-file-upload">
+                    Escolher Arquivo
+                </label>
+                <span id="status-${fieldId}" class="file-status ${fileStatusClass}">${fileStatusText}</span>
+            `;
+            break;
+        case 'signature':
+            // O valor aqui é a string Base64 (se houver)
+            inputHTML = `
+                <div class="signature-pad-container">
+                    <canvas id="${fieldId}_canvas" class="signature-canvas" width="300" height="100"></canvas>
+                    <input type="hidden" id="${fieldId}" name="${fieldConfig.name}" value="${value}" ${required}>
+                    <button type="button" class="clear-signature">Limpar Assinatura</button>
+                </div>
+            `;
+            helpHTML = `<small class="help-text">Assine no quadro acima</small>`;
+            break;
+        default:
+            inputHTML = `<input type="text" id="${fieldId}" name="${fieldConfig.name}" value="${value}" ${required} ${readonly} placeholder="${placeholder}" onchange="handleFieldChange('${fieldConfig.name}', this.value)">`;
+    }
+
+    // Estrutura o HTML do grupo de formulário
+    return `
+        <div class="form-group" id="group-${fieldId}">
+            <label for="${fieldId}">
+                ${indicatorHTML}
+                ${labelText}
+                ${unitHTML}
+            </label>
+            <div class="input-wrapper">${inputHTML}</div>
+            ${helpHTML}
+        </div>
+    `;
+}
+
+/**
+ * Gera o formulário para a janela (modal) e o exibe.
+ * Esta é a função chamada pelo handleWindowClick.
+ * @param {string} windowId O ID da janela/grupo a ser gerada
+ */
+function generateForm(windowId) {
+    currentWindowId = windowId;
+    const config = FORM_STRUCTURE[windowId];
+    const modalBody = document.getElementById('formFields');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalOverlay = document.getElementById('modalOverlay');
+    const tagMenuModal = document.getElementById('tagMenuModal');
+    
+    if (!config || !modalBody || !modalTitle || !modalOverlay) return;
+
+    // 1. Configurações e Título
+    modalTitle.textContent = config.title;
+
+    // 2. Geração dos Campos
+    let formContent = '';
+    const currentData = inspectionData[windowId] || {};
+    const jumpTags = [];
+
+    config.fields.forEach(field => {
+        // Coleta tags para o menu interno do modal
+        if (field.tag) {
+            jumpTags.push({ tag: field.tag, id: `group-${currentWindowId}-${field.name}` });
+        }
+        
+        const value = currentData[field.name];
+        formContent += createFieldHTML(field, value);
+    });
+    
+    // 3. Inserir o conteúdo no corpo e o menu de tags
+    modalBody.innerHTML = formContent; 
+    
+    // 4. Criar e inserir o menu de tags (se houver)
+    tagMenuModal.innerHTML = '';
+    if (jumpTags.length > 0) {
+        const menu = createTagMenu(jumpTags);
+        if (menu) {
+            tagMenuModal.appendChild(menu);
+            tagMenuModal.style.display = 'flex';
+        } else {
+            tagMenuModal.style.display = 'none';
+        }
+    } else {
+        tagMenuModal.style.display = 'none';
+    }
+
+    // 5. Exibir o Modal e inicializar scripts
+    if (modalOverlay) {
+        modalOverlay.classList.add('active'); 
+    }
+    
+    // Inicializa a funcionalidade de assinatura
+    initializeSignatures();
+    
+    // Preenche campos automáticos na abertura do modal
+    initializeAutomaticFields(windowId);
+}
+
+/**
+ * Função auxiliar para tratar a mudança de valor de um campo simples.
+ * Usada no onchange dos inputs gerados.
+ * @param {string} fieldName 
+ * @param {string|number} value 
+ */
+window.handleFieldChange = function(fieldName, value) {
+    if (!inspectionData[currentWindowId]) {
+        inspectionData[currentWindowId] = {};
+    }
+    // Salva o valor no objeto de inspeção
+    inspectionData[currentWindowId][fieldName] = value;
+    // Atualiza o localStorage temporariamente
+    saveData(inspectionData);
+    // Para campos de status, atualiza o indicador imediatamente
+    if (FORM_STRUCTURE[currentWindowId].fields.find(f => f.name === fieldName && f.type === 'status')) {
+        const fieldId = `${currentWindowId}-${fieldName}`;
+        updateStatusIndicator(fieldId, value);
+    }
+};
+
+/**
+ * Função auxiliar para tratar a mudança de valor de um campo de arquivo.
+ * @param {HTMLInputElement} inputElement 
+ * @param {string} fieldName 
+ */
+window.handleFileChange = function(inputElement, fieldName) {
+    if (!inspectionData[currentWindowId]) {
+        inspectionData[currentWindowId] = {};
+    }
+
+    if (inputElement.files.length > 0) {
+        const file = inputElement.files[0];
+        // Armazena o objeto File na memória global
+        window.fileStorage[fieldName] = file;
+        // Salva a flag no inspectionData/localStorage (pois File não pode ser stringificado)
+        inspectionData[currentWindowId][fieldName] = `FILE_SET_${fieldName}`;
+    } else {
+        // Se o arquivo foi removido
+        delete window.fileStorage[fieldName];
+        inspectionData[currentWindowId][fieldName] = '';
+    }
+    saveData(inspectionData);
+};
+
+/**
+ * Preenche campos automáticos (data, hora, nomes sugeridos) ao abrir o modal.
+ * @param {string} windowId 
+ */
+function initializeAutomaticFields(windowId) {
+    if (windowId !== 'dados-iniciais') return;
+
+    // Preenche data e hora inicial se estiverem vazios
+    const dataField = document.getElementById('dados-iniciais-data');
+    const horaInicialField = document.getElementById('dados-iniciais-hora_inicial');
+
+    if (dataField && !dataField.value) {
+        dataField.value = getCurrentDate();
+        handleFieldChange('data', getCurrentDate());
+    }
+    if (horaInicialField && !horaInicialField.value) {
+        horaInicialField.value = getCurrentTime();
+        handleFieldChange('hora_inicial', getCurrentTime());
+    }
+
+    // Preenche nomes sugeridos
+    const operadorField = document.getElementById('dados-iniciais-operador');
+    const supervisorField = document.getElementById('dados-iniciais-supervisor');
+
+    if (operadorField && lastNames.operador && !operadorField.value) {
+        operadorField.value = lastNames.operador;
+        handleFieldChange('operador', lastNames.operador);
+    }
+    if (supervisorField && lastNames.supervisor && !supervisorField.value) {
+        supervisorField.value = lastNames.supervisor;
+        handleFieldChange('supervisor', lastNames.supervisor);
+    }
+}
+
 
 // Função global para atualizar o indicador de status de um campo
 window.updateStatusIndicator = function(fieldId, value) {
@@ -180,7 +440,8 @@ window.updateStatusIndicator = function(fieldId, value) {
 function handleWindowClick(event) {
     const button = event.currentTarget;
     const windowId = button.dataset.window;
-    generateForm(windowId);
+    // CRÍTICO: Agora chama a função que existe
+    generateForm(windowId); 
 }
 
 /**
@@ -196,14 +457,14 @@ function handleFormSubmit(event) {
     const windowFields = FORM_STRUCTURE[currentWindowId].fields;
 
     windowFields.forEach(field => {
-        const value = formData.get(field.name);
+        // Tenta obter o valor do FormData
+        const formValue = formData.get(field.name);
         
         if (field.type === 'file') {
-            // Se for input type="file", 'value' é um objeto File.
-            if (value instanceof File && value.size > 0) {
-                // 1. Armazena o OBJETO FILE na memória (window.fileStorage)
-                window.fileStorage[field.name] = value;
-                // 2. Salva uma FLAG no inspectionData para persistir no localStorage
+            // Se for input type="file", 'formValue' é um objeto File.
+            if (formValue instanceof File && formValue.size > 0) {
+                // Se um novo arquivo foi selecionado no modal, ele já foi salvo na memória pelo handleFileChange.
+                // Aqui apenas garantimos que a flag esteja no objeto 'data' a ser salvo no localStorage.
                 data[field.name] = `FILE_SET_${field.name}`; 
             } else if (inspectionData[currentWindowId] && inspectionData[currentWindowId][field.name] && inspectionData[currentWindowId][field.name].startsWith('FILE_SET')) {
                 // Mantém a flag se o campo não foi alterado mas já havia um arquivo antes
@@ -212,16 +473,16 @@ function handleFormSubmit(event) {
                 data[field.name] = '';
             }
         } else if (field.type === 'signature') {
-            // Se for assinatura, 'value' é a string Base64 do input hidden.
-            // 1. Armazena Base64 no data para ser persistido no localStorage e enviado.
-            data[field.name] = value || '';
-        } else if (value !== null) {
+            // Se for assinatura, 'formValue' é a string Base64 do input hidden.
+            data[field.name] = formValue || '';
+        } else if (formValue !== null) {
             // Campos de texto, números, etc.
-            data[field.name] = value;
+            data[field.name] = formValue;
         }
     });
 
     if (currentWindowId === 'dados-iniciais') {
+        // Salva os nomes do operador/supervisor para sugestão futura
         lastNames.operador = data.operador || '';
         lastNames.supervisor = data.supervisor || '';
         saveLastNames(lastNames);
@@ -367,7 +628,7 @@ async function sendReportToScript(formType, data) {
                     }
 
                 } else if (fieldConfig && fieldConfig.type === 'file' && typeof value === 'string' && value.startsWith('FILE_SET')) {
-                    // 2. TRATAMENTO DE INPUTS FILE: Pega o objeto File da memória (armazenado em handleFormSubmit)
+                    // 2. TRATAMENTO DE INPUTS FILE: Pega o objeto File da memória (armazenado em handleFileChange)
                     const fileObj = window.fileStorage && window.fileStorage[key];
                     if (fileObj) {
                          // CRÍTICO: Anexa o objeto File original.
@@ -455,9 +716,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (inspectionData[windowId]) {
             FORM_STRUCTURE[windowId].fields.filter(f => f.type === 'file').forEach(field => {
                 if (inspectionData[windowId][field.name] && inspectionData[windowId][field.name].startsWith('FILE_SET')) {
-                    // Tenta restaurar a File se possível, mas aqui confiamos na flag e na memória.
-                    // Se o usuário fechar/reabrir o navegador, o fileStorage será perdido.
-                    // Isso é aceitável, pois exige que o usuário re-selecione o arquivo.
+                    // Nenhuma ação é necessária aqui, a flag só indica que havia um arquivo.
                 }
             });
         }
@@ -530,6 +789,11 @@ function initializeSignatures() {
         const ctx = canvas.getContext('2d');
         let drawing = false;
 
+        // CRÍTICO: Redimensiona o canvas para o tamanho visível no CSS
+        const container = canvas.parentElement;
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+
         function getPos(e) {
             const rect = canvas.getBoundingClientRect();
             if (e.touches && e.touches.length > 0) {
@@ -575,7 +839,8 @@ function initializeSignatures() {
         canvas.addEventListener('touchcancel', endDraw);
         // Botão limpar
         if (clearBtn) {
-            clearBtn.addEventListener('click', () => {
+            clearBtn.addEventListener('click', (e) => {
+                e.preventDefault(); // Impede o submit do formulário!
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 hiddenInput.value = '';
             });
