@@ -1,6 +1,4 @@
-// O FORM_STRUCTURE é assumido como carregado do data_structure.js
-
-// Variáveis globais de estado
+// VARIÁVEIS GLOBAIS (Assumindo que FORM_STRUCTURE está carregada de data_structure.js)
 let formDataState = {};
 let activeWindowName = null;
 
@@ -12,6 +10,8 @@ const formFieldsDiv = document.getElementById('formFields');
 const windowForm = document.getElementById('windowForm');
 const submitReportButton = document.getElementById('submitReport');
 const jumpMenu = document.getElementById('jumpMenu');
+const modalClose = document.getElementById('modalClose'); // Botão de fechar 'X'
+const modalCancel = document.getElementById('modalCancel'); // Botão Cancelar
 
 // Variáveis de Canvas para Assinatura
 let signatureCanvas, signatureCtx, isDrawing = false;
@@ -25,6 +25,7 @@ let signatureBlob = null; // Armazena o Blob da assinatura
  * Inicializa o grid de janelas e o menu de navegação rápida.
  */
 function initializeGrid() {
+    if (!windowsGrid || !FORM_STRUCTURE) return; // Segurança
     windowsGrid.innerHTML = '';
     
     // Preencher o menu rápido e o grid
@@ -39,7 +40,7 @@ function initializeGrid() {
 
         // 2. Criar Janela no Grid
         const windowDiv = document.createElement('div');
-        windowDiv.className = 'window-card incomplete'; // Começa como incompleta
+        windowDiv.className = 'window-card incomplete';
         windowDiv.id = `card-${sectionKey}`;
         windowDiv.dataset.section = sectionKey;
         
@@ -56,7 +57,10 @@ function initializeGrid() {
     });
 
     // Exibir o Jump Menu
-    document.getElementById('jumpMenuContainer').style.display = 'block';
+    const jumpMenuContainer = document.getElementById('jumpMenuContainer');
+    if (jumpMenuContainer) {
+        jumpMenuContainer.style.display = 'block';
+    }
 }
 
 /**
@@ -80,6 +84,7 @@ function jumpToField(sectionKey) {
  * Abre o modal de edição para uma seção específica.
  */
 function openModal(sectionKey) {
+    if (!modalOverlay) return; // Segurança
     activeWindowName = sectionKey;
     const section = FORM_STRUCTURE[sectionKey];
     modalTitle.textContent = `${section.icon} ${section.title}`;
@@ -91,13 +96,13 @@ function openModal(sectionKey) {
         formFieldsDiv.appendChild(fieldGroup);
     });
 
-    // Se for a seção de dados iniciais, inicializa o canvas de assinatura
+    // Preencher com dados salvos
+    loadFormData(sectionKey);
+    
+    // NOVO AJUSTE: Inicializa o Canvas APÓS a renderização no DOM
     if (sectionKey === 'dados-iniciais') {
         initializeSignatureCanvas();
     }
-    
-    // Preencher com dados salvos
-    loadFormData(sectionKey);
     
     modalOverlay.style.display = 'flex';
 }
@@ -113,20 +118,20 @@ function createFieldElement(field) {
     if (field.name === 'assinatura' && field.type === 'file') {
         fieldGroup.className += ' signature-container';
         fieldGroup.innerHTML = `
-            <label>${field.label}</label>
-            <canvas id="signatureCanvas" width="350" height="150" style="border: 1px solid #ccc; touch-action: none;"></canvas>
+            <label>${field.label} ${field.required ? '*' : ''}</label>
+            <canvas id="signatureCanvas" width="350" height="150" style="border: 1px solid #ccc; touch-action: none; background-color: white;"></canvas>
             <div class="signature-controls">
-                <button type="button" id="clearSignatureButton">Limpar</button>
+                <button type="button" id="clearSignatureButton" class="btn-secondary">Limpar</button>
                 <p class="signature-hint">Desenhe sua assinatura acima.</p>
             </div>
         `;
         return fieldGroup;
     }
 
-    // RENDERIZAÇÃO DE CAMPOS NORMAIS (text, number, range, select, status, etc.)
+    // RENDERIZAÇÃO DE CAMPOS NORMAIS
     const label = document.createElement('label');
     label.htmlFor = field.name;
-    label.textContent = field.label + (field.unit ? ` (${field.unit})` : '');
+    label.textContent = field.label + (field.unit ? ` (${field.unit})` : '') + (field.required ? ' *' : '');
 
     let inputElement;
 
@@ -148,7 +153,10 @@ function createFieldElement(field) {
         if (field.min !== undefined) inputElement.min = field.min;
         if (field.max !== undefined) inputElement.max = field.max;
         if (field.step !== undefined) inputElement.step = field.step;
+        if (field.default !== undefined) inputElement.value = field.default; // Define valor padrão
     }
+    
+    if (field.required) inputElement.required = true;
 
     inputElement.id = field.name;
     inputElement.name = field.name;
@@ -168,7 +176,7 @@ function loadFormData(sectionKey) {
     Object.keys(data).forEach(fieldName => {
         const fieldElement = document.getElementById(fieldName);
         if (fieldElement) {
-            // Não carrega a assinatura (o canvas deve ser manipulado separadamente)
+            // A assinatura é carregada separadamente
             if (fieldName === 'assinatura') return; 
 
             if (fieldElement.type === 'checkbox') {
@@ -178,10 +186,13 @@ function loadFormData(sectionKey) {
             }
         }
     });
-
-    // Carregar Assinatura salva (se houver um blob salvo)
-    if (sectionKey === 'dados-iniciais' && signatureBlob) {
+    
+    // NOVO AJUSTE: Carrega Assinatura (se houver um blob salvo)
+    if (signatureBlob && sectionKey === 'dados-iniciais') {
+        signatureCanvas = document.getElementById('signatureCanvas');
         if (signatureCanvas) {
+            signatureCtx = signatureCanvas.getContext('2d');
+            
             // Desenhar o blob salvo no canvas para visualização/edição
             const img = new Image();
             img.onload = () => {
@@ -200,10 +211,13 @@ function initializeSignatureCanvas() {
     signatureCanvas = document.getElementById('signatureCanvas');
     if (!signatureCanvas) return;
     
+    // Configurações do contexto de desenho
     signatureCtx = signatureCanvas.getContext('2d');
     signatureCtx.lineWidth = 3;
     signatureCtx.lineCap = 'round';
     signatureCtx.strokeStyle = '#000';
+    signatureCtx.fillStyle = '#fff';
+    signatureCtx.fillRect(0, 0, signatureCanvas.width, signatureCanvas.height); // Garante fundo branco
 
     // Configuração de Eventos
     signatureCanvas.addEventListener('pointerdown', startDrawing);
@@ -212,12 +226,6 @@ function initializeSignatureCanvas() {
     signatureCanvas.addEventListener('pointermove', draw);
     
     document.getElementById('clearSignatureButton').addEventListener('click', clearSignature);
-
-    // Se houver um blob salvo, ele é carregado em loadFormData, mas garante que o blob está disponível
-    if (signatureBlob) {
-        // Redesenhar o blob no canvas se já existir
-        loadFormData('dados-iniciais');
-    }
 }
 
 function startDrawing(e) {
@@ -245,29 +253,46 @@ function stopDrawing() {
 }
 
 function clearSignature() {
+    // Limpa o canvas e redesenha o fundo branco
     signatureCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+    signatureCtx.fillStyle = '#fff';
+    signatureCtx.fillRect(0, 0, signatureCanvas.width, signatureCanvas.height);
     signatureBlob = null;
 }
 
 /**
  * Converte o canvas para Blob e salva na variável global.
+ * Retorna uma Promise que resolve após o toBlob terminar.
  */
 function saveSignature() {
-    if (!signatureCanvas) return;
-    
-    // Verifica se o canvas está em branco
-    const isCanvasBlank = !signatureCtx.getImageData(0, 0, signatureCanvas.width, signatureCanvas.height).data.some(channel => channel !== 0);
-    
-    if (isCanvasBlank) {
-        signatureBlob = null;
-    } else {
-        // Converte o conteúdo do canvas para um Blob de imagem (PNG)
-        signatureCanvas.toBlob(blob => {
-            signatureBlob = blob;
-            // O blob precisa de um nome de arquivo para ser processado pelo Apps Script
-            blob.name = 'assinatura.png';
-        }, 'image/png');
-    }
+    return new Promise(resolve => {
+        if (!signatureCanvas) {
+            signatureBlob = null;
+            resolve();
+            return;
+        }
+        
+        // Verifica se o canvas está em branco
+        // Se a cor for RGB(255, 255, 255, 255) em toda a área, está em branco
+        const imageData = signatureCtx.getImageData(0, 0, signatureCanvas.width, signatureCanvas.height);
+        const isCanvasBlank = !imageData.data.some((channel, index) => {
+             // Checa se o canal de cor não é branco E se não é o canal alfa (que é 255)
+             return (index + 1) % 4 !== 0 && channel !== 255;
+        });
+
+        if (isCanvasBlank) {
+            signatureBlob = null;
+            resolve();
+        } else {
+            // Converte o conteúdo do canvas para um Blob de imagem (PNG)
+            signatureCanvas.toBlob(blob => {
+                // Adiciona um nome ao blob, essencial para o Apps Script (e.files)
+                blob.name = 'assinatura.png';
+                signatureBlob = blob;
+                resolve();
+            }, 'image/png');
+        }
+    });
 }
 
 
@@ -278,21 +303,27 @@ function saveSignature() {
 /**
  * Salva os dados do formulário modal no estado global.
  */
-function saveFormData() {
+async function saveFormData() {
     const currentData = {};
     const section = FORM_STRUCTURE[activeWindowName];
     let isComplete = true;
 
-    // 1. Coletar dados dos campos normais
+    // 1. Salvar Assinatura (deve ser o primeiro para garantir que o blob existe)
+    if (activeWindowName === 'dados-iniciais') {
+        // Aguarda a conversão toBlob ser finalizada
+        await saveSignature(); 
+    }
+
+    // 2. Coletar dados dos campos normais e verificar completude
     section.fields.forEach(field => {
         const element = document.getElementById(field.name);
         if (element) {
             let value;
             if (field.type === 'file' && field.name !== 'assinatura') {
-                // Arquivos são tratados separadamente, o campo de texto guarda o nome
+                // Arquivos de anomalia
                 value = element.files[0] ? element.files[0].name : '';
             } else if (field.name === 'assinatura') {
-                // A assinatura é tratada separadamente, aqui guardamos uma flag
+                // Assinatura (usa o blob gerado)
                 value = signatureBlob ? 'assinatura.png' : '';
             } else if (element.type === 'checkbox') {
                 value = element.checked;
@@ -303,177 +334,10 @@ function saveFormData() {
             currentData[field.name] = value;
             
             // Checar obrigatoriedade
-            if (field.required && !value) {
+            if (field.required && !value && (field.name !== 'assinatura' || !signatureBlob)) {
                 isComplete = false;
             }
         }
     });
-
-    // 2. Salvar Assinatura (se for a seção inicial)
-    if (activeWindowName === 'dados-iniciais') {
-        saveSignature(); 
-        if (section.fields.find(f => f.name === 'assinatura' && f.required) && !signatureBlob) {
-             // Se a assinatura for obrigatória e o blob não foi gerado
-             // (Pode exigir um setTimeout para garantir que toBlob terminou, mas vamos simplificar aqui)
-             // isComplete = false; 
-        }
-    }
     
-    // 3. Atualizar Estado
-    formDataState[activeWindowName] = currentData;
-    updateWindowStatus(activeWindowName, isComplete);
-    
-    // 4. Fechar Modal
-    modalOverlay.style.display = 'none';
-    checkAllSectionsComplete();
-}
-
-/**
- * Atualiza o status visual de uma seção no grid.
- */
-function updateWindowStatus(sectionKey, isComplete) {
-    const card = document.getElementById(`card-${sectionKey}`);
-    const statusP = document.getElementById(`status-${sectionKey}`);
-    
-    if (isComplete) {
-        card.classList.remove('incomplete');
-        card.classList.add('complete');
-        statusP.textContent = 'Completo';
-    } else {
-        card.classList.remove('complete');
-        card.classList.add('incomplete');
-        statusP.textContent = 'Faltando dados';
-    }
-}
-
-/**
- * Verifica se todas as seções estão completas para habilitar o botão de envio.
- */
-function checkAllSectionsComplete() {
-    const allComplete = Object.keys(FORM_STRUCTURE).every(key => {
-        const card = document.getElementById(`card-${key}`);
-        return card && card.classList.contains('complete');
-    });
-
-    submitReportButton.disabled = !allComplete;
-}
-
-/**
- * Lida com o envio final de todos os dados e arquivos para o Apps Script.
- */
-async function submitReport() {
-    if (submitReportButton.disabled) return;
-
-    const finalFormData = new FormData();
-    let filesCount = 0;
-
-    // 1. Coletar todos os dados de texto e arquivos
-    Object.keys(FORM_STRUCTURE).forEach(sectionKey => {
-        const sectionData = formDataState[sectionKey];
-        const sectionFields = FORM_STRUCTURE[sectionKey].fields;
-
-        sectionFields.forEach(field => {
-            const fieldName = field.name;
-            const fieldValue = sectionData[fieldName];
-
-            if (field.type === 'file' && fieldName !== 'assinatura') {
-                // 1a. Tratar arquivos de anomalia
-                const inputElement = document.getElementById(fieldName);
-                if (inputElement && inputElement.files[0]) {
-                    finalFormData.append(fieldName, inputElement.files[0], fieldValue);
-                    filesCount++;
-                }
-            } else if (fieldName === 'assinatura' && signatureBlob) {
-                // 1b. Tratar Assinatura (o blob foi salvo anteriormente)
-                // Usamos o blob salvo e damos o nome de arquivo
-                finalFormData.append(fieldName, signatureBlob, 'assinatura.png');
-                filesCount++;
-            } else {
-                // 1c. Tratar dados de texto (incluindo paths de arquivos vazios)
-                finalFormData.append(fieldName, fieldValue || '');
-            }
-        });
-    });
-
-    // 2. Exibir o spinner de carregamento
-    showSpinner('Enviando relatório e arquivos. Aguarde...');
-
-    // 3. Enviar para o Apps Script
-    try {
-        const url = 'SEU_URL_APPS_SCRIPT_DEPLOY'; // Substitua pelo seu URL de implantação
-        const response = await fetch(url, {
-            method: 'POST',
-            body: finalFormData,
-            // Não defina Content-Type; o FormData fará isso automaticamente com boundary.
-        });
-
-        const result = await response.text();
-
-        if (result === 'ok') {
-            alert('Relatório enviado com sucesso!');
-            window.location.reload(); // Recarregar a página para novo formulário
-        } else {
-            alert('Erro ao enviar o relatório. Detalhes: ' + result);
-        }
-
-    } catch (error) {
-        alert('Erro de rede ou servidor: ' + error.message);
-    } finally {
-        hideSpinner();
-    }
-}
-
-// =========================================================================
-// 5. EVENT LISTENERS E INICIALIZAÇÃO
-// =========================================================================
-
-document.addEventListener('DOMContentLoaded', () => {
-    initializeGrid();
-    
-    // Eventos do Modal
-    modalClose.addEventListener('click', () => modalOverlay.style.display = 'none');
-    modalCancel.addEventListener('click', () => modalOverlay.style.display = 'none');
-    windowForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        // A função saveSignature pode ser assíncrona (toBlob), então o ideal seria
-        // envolver isso em uma Promise, mas para simplificar, chamamos a saveFormData
-        // após uma pequena pausa para o toBlob rodar.
-        saveSignature(); 
-        setTimeout(saveFormData, 100); 
-    });
-    
-    // Evento de envio final
-    submitReportButton.addEventListener('click', submitReport);
-    
-    // Inicialização do campo 'data'
-    const today = new Date().toISOString().split('T')[0];
-    FORM_STRUCTURE['dados-iniciais'].fields.find(f => f.name === 'data').default = today;
-});
-
-// Implementação simples de spinner (requer o arquivo spinner.js e spinner.css)
-function showSpinner(message = 'Carregando...') {
-    const spinner = document.getElementById('loadingSpinner') || createSpinnerElement();
-    spinner.querySelector('p').textContent = message;
-    document.body.appendChild(spinner);
-}
-
-function hideSpinner() {
-    const spinner = document.getElementById('loadingSpinner');
-    if (spinner) {
-        spinner.remove();
-    }
-}
-
-// Cria o elemento spinner (se não estiver definido em spinner.js)
-function createSpinnerElement() {
-    const spinner = document.createElement('div');
-    spinner.id = 'loadingSpinner';
-    spinner.className = 'spinner-overlay';
-    spinner.innerHTML = `
-        <div class="spinner-container">
-            <div class="spinner"></div>
-            <p></p>
-        </div>
-    `;
-    return spinner;
-}
+    // 3. Atual
