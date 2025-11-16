@@ -1,10 +1,9 @@
 // Estrutura de dados para o formulário de Inspeção Interna
 // Esta configuração segue as especificações fornecidas pelo usuário:
-// - Janelas (cards) semelhantes à inspeção externa, com marcação azul quando preenchidas
-// - Campos deslizantes (roletas) para intervalos numéricos
-// - Suporte a 23 motores/unidades e 23 geradores AVK, além de compressores e separadoras
+// ... (comentários iniciais omitidos para brevidade) ...
 
 const FORM_STRUCTURE = {
+    // ... (Seções 'dados-iniciais' até 'separadoras-oleo-lubrificante' omitidas, pois não foram alteradas) ...
     'dados-iniciais': {
         title: 'Dados Iniciais',
         icon: '📋',
@@ -15,13 +14,11 @@ const FORM_STRUCTURE = {
             { name: 'operador', label: 'Operador', type: 'text', placeholder: 'Nome do operador', auto: 'suggest_name', required: true },
             { name: 'supervisor', label: 'Supervisor', type: 'text', placeholder: 'Nome do supervisor', auto: 'suggest_name', required: true },
             { name: 'turma', label: 'Turma', type: 'select', options: ['A','B','C','D','E'], required: true },
-            // Campo opcional de assinatura para o operador
             { name: 'assinatura', label: 'Assinatura', type: 'signature', required: false }
         ]
     },
 
-    // Janela 02 – Unidades Geradoras (23 motores)
-    'unidades-geradoras': (() => {
+    'unidades-geradoras': (() => { /* ... (código inalterado) ... */ 
         const fields = [];
         for (let i = 1; i <= 23; i++) {
             const idx = String(i).padStart(2, '0');
@@ -34,8 +31,7 @@ const FORM_STRUCTURE = {
         return { title: 'Unidades Geradoras', icon: '⚙️', fields };
     })(),
 
-    // Janela 03 – Geradores AVK (23 unidades)
-    'geradores-avk': (() => {
+    'geradores-avk': (() => { /* ... (código inalterado) ... */ 
         const fields = [];
         for (let i = 1; i <= 23; i++) {
             const idx = String(i).padStart(2, '0');
@@ -47,8 +43,7 @@ const FORM_STRUCTURE = {
         return { title: 'Geradores AVK', icon: '⚡', fields };
     })(),
 
-    // Janela 04 – Nível VBA (Quatro tanques)
-    'nivel-vba': {
+    'nivel-vba': { /* ... (código inalterado) ... */
         title: 'Nível VBA',
         icon: '🌊',
         fields: [
@@ -59,8 +54,7 @@ const FORM_STRUCTURE = {
         ]
     },
 
-    // Janela 05 – Compressores Partida (TSA)
-    'compressores-partida': (() => {
+    'compressores-partida': (() => { /* ... (código inalterado) ... */ 
         const equip = ['TSA901.1','TSA901.2','TSA902.1','TSA902.2'];
         const fields = [];
         equip.forEach(code => {
@@ -73,8 +67,7 @@ const FORM_STRUCTURE = {
         return { title: 'Compressores Partida', icon: '💨', fields };
     })(),
 
-    // Janela 06 – Compressores Instrumentação (TCA)
-    'compressores-instrumentacao': (() => {
+    'compressores-instrumentacao': (() => { /* ... (código inalterado) ... */ 
         const equip = ['TCA901','TCA902','TCA903'];
         const fields = [];
         equip.forEach(code => {
@@ -88,14 +81,12 @@ const FORM_STRUCTURE = {
         return { title: 'Compressores Instrumentação', icon: '🎛️', fields };
     })(),
 
-    // Janela 07 – Separadoras de Óleo Lubrificante (QBB)
-    'separadoras-oleo-lubrificante': (() => {
+    'separadoras-oleo-lubrificante': (() => { /* ... (código inalterado) ... */ 
         const fields = [];
         for (let i = 1; i <= 23; i++) {
             const idx = String(i).padStart(2, '0');
             fields.push({ name: `qbb${idx}_status`, label: `Status QBB#${idx}`, type: 'status', options: ['OPE','ST-BY','MNT'], default: 'ST-BY', required: true, tag: `QBB#${idx}` });
             fields.push({ name: `qbb${idx}_carter`, label: `Nível do Cárter QBB#${idx}`, type: 'range', min: 0, max: 100, step: 1, unit: '%', default: 50, required: true });
-            // Vazão, temperatura e rotação não são obrigatórios quando a QBB estiver em stand-by ou manutenção, por isso não marcados como required
             fields.push({ name: `qbb${idx}_vazao`, label: `Vazão QBB#${idx}`, type: 'range', min: 0, max: 4000, step: 1, unit: 'l/h', default: 2000, required: false });
             fields.push({ name: `qbb${idx}_temperatura`, label: `Temperatura QBB#${idx}`, type: 'range', min: 0, max: 125, step: 1, unit: 'ºC', default: 85, required: false });
             fields.push({ name: `qbb${idx}_rotacao`, label: `Rotação QBB#${idx}`, type: 'range', min: 0, max: 14000, step: 100, unit: 'RPM', default: 8000, required: false });
@@ -103,14 +94,10 @@ const FORM_STRUCTURE = {
         return { title: 'Separadoras de Óleo Lubrificante', icon: '🛢️', fields };
     })(),
 
-    // Janela 08 – Anormalidades
+    // Janela 08 – Anormalidades (SEÇÃO ATUALIZADA)
     'anormalidades': {
         title: 'Anormalidades',
         icon: '⚠️',
-        /**
-         * Nesta seção o operador pode registrar até seis anormalidades.
-         * Para cada anormalidade são gerados três campos: descrição, local e imagem.
-         */
         fields: (() => {
             const arr = [];
             for (let i = 1; i <= 6; i++) {
@@ -129,7 +116,9 @@ const FORM_STRUCTURE = {
                     required: false
                 });
                 arr.push({
-                    name: `imagem_${i}`,
+                    // 🚨 CAMPO RENOMEADO: De 'imagem_i' para 'foto_anomaliai'
+                    // Isso garante que o FormData use o nome esperado pelo Apps Script e pelo template.
+                    name: `foto_anomalia${i}`, 
                     label: `Anexar Imagem ${i}`,
                     type: 'file',
                     accept: 'image/*',
