@@ -12,7 +12,7 @@ const FORM_STRUCTURE = {
             { name: 'operador', label: 'Operador', type: 'text', placeholder: 'Nome do operador', auto: 'suggest_name', required: true },
             { name: 'supervisor', label: 'Supervisor', type: 'text', placeholder: 'Nome do supervisor', auto: 'suggest_name', required: true },
             { name: 'turma', label: 'Turma', type: 'select', options: ['A', 'B', 'C', 'D', 'E'], required: true },
-            // Campo opcional de assinatura para o operador
+            // MANTIDO: Campo opcional de assinatura para o operador (type: 'signature' para renderizar Canvas)
             { name: 'assinatura', label: 'Assinatura', type: 'signature', required: false }
         ]
     },
@@ -31,8 +31,8 @@ const FORM_STRUCTURE = {
         icon: '🔥',
         fields: [
             { name: 'jockey_status', label: 'Status Bomba Jockey', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            // Pressão padrão atualizada para 12, conforme nova especificação
-            { name: 'incendio_pressao', label: 'Pressão da Linha de Incêndio', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar', default: 12 },
+            // Valor padrão de 12 para range max 10 foi corrigido para o default ser 10, mantendo o min/max.
+            { name: 'incendio_pressao', label: 'Pressão da Linha de Incêndio', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar', default: 10 }, 
             { name: 'sprinkler_status', label: 'Status Bomba Sprinkler (Elétrica)', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
             { name: 'sprinkler_oleo', label: 'Nível de Óleo Cavalete Bomba Sprinkler', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
             { name: 'diesel_status', label: 'Status Bomba Diesel', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
@@ -276,13 +276,15 @@ const FORM_STRUCTURE = {
             // TR01
             { name: 'tr01_status', label: 'Status do TR01', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
             { name: 'tr01_temp_enrolamento', label: 'Temp. Enrolamento', type: 'range', min: 0, max: 150, step: 1, unit: 'ºC' },
-            { name: 'tr01_nivel_oleo_isolante', label: 'Nível do Óleo Isolante', type: 'range', min: 0, max: 100, step: 1, unit: 'ºC' }, // Nível isolante
+            // NOVO: 'Nível do Óleo Isolante' deve ser em % e não em ºC
+            { name: 'tr01_nivel_oleo_isolante', label: 'Nível do Óleo Isolante', type: 'range', min: 0, max: 100, step: 1, unit: '%' }, 
             { name: 'tr01_cor_silica', label: 'Cor da Sílica', type: 'select', options: ['Azul', 'Branca', 'Laranja'] },
             { name: 'tr01_nivel_oleo_selante', label: 'Nível do Óleo Selante da Sílica', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
             // TR02
             { name: 'tr02_status', label: 'Status do TR02', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
             { name: 'tr02_temp_enrolamento', label: 'Temp. Enrolamento', type: 'range', min: 0, max: 150, step: 1, unit: 'ºC' },
-            { name: 'tr02_nivel_oleo_isolante', label: 'Nível do Óleo Isolante', type: 'range', min: 0, max: 100, step: 1, unit: 'ºC' },
+            // NOVO: 'Nível do Óleo Isolante' deve ser em % e não em ºC
+            { name: 'tr02_nivel_oleo_isolante', label: 'Nível do Óleo Isolante', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
             { name: 'tr02_cor_silica', label: 'Cor da Sílica', type: 'select', options: ['Azul', 'Branca', 'Laranja'] },
             { name: 'tr02_nivel_oleo_selante', label: 'Nível do Óleo Selante da Sílica', type: 'range', min: 0, max: 100, step: 1, unit: '%' }
         ]
@@ -315,9 +317,7 @@ const FORM_STRUCTURE = {
         title: 'Anormalidades',
         icon: '⚠️',
         /**
-         * Cada inspeção pode registrar até seis anormalidades.
-         * Para cada anormalidade são criados três campos: descrição, local e imagem.
-         * A estrutura é gerada dinamicamente aqui para facilitar futuras alterações.
+         * Ajustado para gerar os campos de anormalidade de 1 a 6.
          */
         fields: (() => {
             const fields = [];
