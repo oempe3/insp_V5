@@ -1,348 +1,479 @@
-// Estrutura de dados completa do formulário, conforme as instruções do usuário.
-// Esta estrutura será usada para gerar dinamicamente os campos no HTML e gerenciar o estado.
+// O FORM_STRUCTURE é assumido como carregado do data_structure.js
 
-const FORM_STRUCTURE = {
-    'dados-iniciais': {
-        title: 'Dados Iniciais',
-        icon: '📋',
-        fields: [
-            { name: 'hora_inicial', label: 'Hora Inicial', type: 'time', auto: 'start_time', required: true },
-            { name: 'hora_final', label: 'Hora Final', type: 'time', auto: 'end_time', readonly: true },
-            { name: 'data', label: 'Data', type: 'date', auto: 'start_date', required: true },
-            { name: 'operador', label: 'Operador', type: 'text', placeholder: 'Nome do operador', auto: 'suggest_name', required: true },
-            { name: 'supervisor', label: 'Supervisor', type: 'text', placeholder: 'Nome do supervisor', auto: 'suggest_name', required: true },
-            { name: 'turma', label: 'Turma', type: 'select', options: ['A', 'B', 'C', 'D', 'E'], required: true },
-            // AJUSTE 1: Assinatura deve ser tratada como campo 'file' para envio via FormData.
-            { name: 'assinatura', label: 'Assinatura (Canvas)', type: 'file', accept: 'image/*', required: false } 
-        ]
-    },
-    'bomba-pocos': {
-        title: 'Bomba dos Poços',
-        icon: '💧',
-        fields: [
-            { name: 'bomba1_status', label: 'Status da Bomba 1', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'bomba1_hidrometro', label: 'Hidrômetro Bomba 1', type: 'number', unit: 'acumulado m³' },
-            { name: 'bomba2_status', label: 'Status da Bomba 2', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'bomba2_hidrometro', label: 'Hidrômetro Bomba 2', type: 'number', unit: 'acumulado m³' }
-        ]
-    },
-    'container-incendio': {
-        title: 'Container Incêndio',
-        icon: '🔥',
-        fields: [
-            { name: 'jockey_status', label: 'Status Bomba Jockey', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            // A pressão padrão 12 está acima do max 10, mantendo o min/max original.
-            { name: 'incendio_pressao', label: 'Pressão da Linha de Incêndio', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar', default: 5 }, 
-            { name: 'sprinkler_status', label: 'Status Bomba Sprinkler (Elétrica)', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'sprinkler_oleo', label: 'Nível de Óleo Cavalete Bomba Sprinkler', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'diesel_status', label: 'Status Bomba Diesel', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'bateria01_tensao', label: 'Tensão Bateria 01', type: 'range', min: 0, max: 16, step: 0.1, unit: 'V', default: 12 },
-            { name: 'bateria02_tensao', label: 'Tensão Bateria 02', type: 'range', min: 0, max: 16, step: 0.1, unit: 'V', default: 12 },
-            { name: 'radiador_agua_incendio', label: 'Nível Água do Radiador', type: 'range', min: 0, max: 100, step: 1, unit: '%' }, // Adicionado _incendio
-            { name: 'oleo_lubrificante_incendio', label: 'Nível de Óleo Lubrificante', type: 'range', min: 0, max: 100, step: 1, unit: '%' }, // Adicionado _incendio
-            { name: 'oleo_combustivel_incendio', label: 'Nível de Óleo Combustível', type: 'range', min: 0, max: 100, step: 1, unit: '%' }, // Adicionado _incendio
-            { name: 'horimetro_incendio', label: 'Horímetro', type: 'number', unit: 'acumulado m³', default: 0 }, // Adicionado _incendio
-            { name: 'diesel_oleo_cavalete', label: 'Nível de Óleo Cavalete Bomba Diesel', type: 'range', min: 0, max: 100, step: 1, unit: '%' }
-        ]
-    },
-    'eta': {
-        title: 'ETA',
-        icon: '🧪',
-        fields: [
-            { name: 'abrandado_status', label: 'Status Tratamento Abrandado', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'abrandado_nivel', label: 'Nível do Tanque Abrandado', type: 'range', min: 0, max: 10, step: 0.1, unit: 'm³' },
-            { name: 'osmose_status', label: 'Status Tratamento Osmose Reversa', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'agua_tratada_pressao', label: 'Pressão da Linha de Água Tratada', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar' },
-            { name: 'ph_bruta', label: 'PH Água Bruta', type: 'range', min: 0, max: 15, step: 0.1 },
-            { name: 'ph_tratada', label: 'PH Água Tratada', type: 'range', min: 0, max: 15, step: 0.1 },
-            { name: 'hidrometro_bruta', label: 'Hidrômetro Água Bruta', type: 'number', unit: 'acumulado m³', default: 0 },
-            { name: 'hidrometro_tratada', label: 'Hidrômetro Água Tratada', type: 'number', unit: 'acumulado m³', default: 0 },
-            { name: 'soda_caustica', label: 'Nível Soda Cáustica', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'complexante_ferro', label: 'Nível Complexante de Ferro', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'biocida', label: 'Nível Biocida', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'anti_incrustante', label: 'Nível Anti-incrustante O.R', type: 'range', min: 0, max: 100, step: 1, unit: '%' }
-        ]
-    },
-    'tancagem': {
-        title: 'Tancagem',
-        icon: '🛢️',
-        fields: [
-            { name: 'storage_hfo_volume', label: 'Storage HFO PAB901 - Volume', type: 'number', unit: 'm³', digits: 6 },
-            { name: 'storage_hfo_temp', label: 'Storage HFO PAB901 - Temp.', type: 'range', min: 0, max: 150, step: 1, unit: 'ºC' },
-            { name: 'buffer_hfo_volume', label: 'Buffer HFO PBA901 - Volume', type: 'number', unit: 'm³', digits: 6 },
-            { name: 'buffer_hfo_temp', label: 'Buffer HFO PBA901 - Temp.', type: 'range', min: 0, max: 150, step: 1, unit: 'ºC' },
-            { name: 'day_hfo_volume', label: 'Day HFO PBC901 - Volume', type: 'number', unit: 'm³', digits: 6 },
-            { name: 'day_hfo_temp', label: 'Day HFO PBC901 - Temp.', type: 'range', min: 0, max: 150, step: 1, unit: 'ºC' },
-            { name: 'lfo_volume', label: 'LFO PBF901 - Volume', type: 'number', unit: 'm³', digits: 6 },
-            { name: 'lfo_temp', label: 'LFO PBF901 - Temp.', type: 'range', min: 0, max: 150, step: 1, unit: 'ºC' },
-            { name: 'agua_oleosa_volume', label: 'Água Oleosa DAB901 - Volume', type: 'number', unit: 'm³', digits: 6 },
-            { name: 'agua_oleosa_temp', label: 'Água Oleosa DAB901 - Temp.', type: 'range', min: 0, max: 150, step: 1, unit: 'ºC' },
-            { name: 'borra_volume', label: 'Borra DDB901 - Volume', type: 'number', unit: 'm³', digits: 6 },
-            { name: 'borra_temp', label: 'Borra DDB901 - Temp.', type: 'range', min: 0, max: 150, step: 1, unit: 'ºC' },
-            { name: 'agua_bruta_incendio_temp', label: 'Água Bruta / Incêndio VBA VBE901 - Temp.', type: 'range', min: 0, max: 150, step: 1, unit: 'ºC' },
-            { name: 'agua_tratada_volume', label: 'Água Tratada VBC901 - Volume', type: 'number', unit: 'm³' },
-            { name: 'oleo_novo_volume', label: 'Óleo Lubrificante Novo QAC901 - Volume', type: 'number', unit: 'm³' },
-            { name: 'oleo_usado_volume', label: 'Óleo Lubrificante Usado QAD901 - Volume', type: 'number', unit: 'm³' },
-            { name: 'oleo_manutencao1_volume', label: 'Óleo Lubrificante Manutenção QAM901 - Volume', type: 'number', unit: 'm³' },
-            { name: 'oleo_manutencao2_volume', label: 'Óleo Lubrificante Manutenção QAM902 - Volume', type: 'number', unit: 'm³' }
-        ]
-    },
-    'separadoras-hfo': {
-        title: 'Separadoras de HFO',
-        icon: '⚙️',
-        fields: [
-            // PBB901.1 (BJJ902)
-            { name: 'pbb901_1_status', label: 'Status PBB901.1 (BJJ902)', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'pbb901_1_temp', label: 'Temp.', type: 'range', min: 60, max: 120, step: 1, unit: 'ºC' },
-            { name: 'pbb901_1_vazao', label: 'Vazão', type: 'range', min: 0, max: 12, step: 0.1, unit: 'm³/h' },
-            { name: 'pbb901_1_frequencia', label: 'Frequência', type: 'range', min: 0, max: 60, step: 0.1, unit: 'Hz' },
-            { name: 'pbb901_1_pressao_saida', label: 'Pressão Saída', type: 'range', min: 0, max: 4, step: 0.1, unit: 'Bar' },
-            { name: 'pbb901_1_nivel_oleo', label: 'Nível de Óleo', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'pbb901_1_horimetro', label: 'Horímetro', type: 'number' },
-            // PBB901.2 (BJJ902)
-            { name: 'pbb901_2_status', label: 'Status PBB901.2 (BJJ902)', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'pbb901_2_temp', label: 'Temp.', type: 'range', min: 60, max: 120, step: 1, unit: 'ºC' },
-            { name: 'pbb901_2_vazao', label: 'Vazão', type: 'range', min: 0, max: 12, step: 0.1, unit: 'm³/h' },
-            { name: 'pbb901_2_frequencia', label: 'Frequência', type: 'range', min: 0, max: 60, step: 0.1, unit: 'Hz' },
-            { name: 'pbb901_2_pressao_saida', label: 'Pressão Saída', type: 'range', min: 0, max: 4, step: 0.1, unit: 'Bar' },
-            { name: 'pbb901_2_nivel_oleo', label: 'Nível de Óleo', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'pbb901_2_horimetro', label: 'Horímetro', type: 'number' },
-            // PBB901.3 (BJJ903)
-            { name: 'pbb901_3_status', label: 'Status PBB901.3 (BJJ903)', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'pbb901_3_temp', label: 'Temp.', type: 'range', min: 60, max: 120, step: 1, unit: 'ºC' },
-            { name: 'pbb901_3_vazao', label: 'Vazão', type: 'range', min: 0, max: 12, step: 0.1, unit: 'm³/h' },
-            { name: 'pbb901_3_frequencia', label: 'Frequência', type: 'range', min: 0, max: 60, step: 0.1, unit: 'Hz' },
-            { name: 'pbb901_3_pressao_saida', label: 'Pressão Saída', type: 'range', min: 0, max: 4, step: 0.1, unit: 'Bar' },
-            { name: 'pbb901_3_nivel_oleo', label: 'Nível de Óleo', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'pbb901_3_horimetro', label: 'Horímetro', type: 'number' },
-            // PBB902.1 (BJJ904)
-            { name: 'pbb902_1_status', label: 'Status PBB902.1 (BJJ904)', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'pbb902_1_temp', label: 'Temp.', type: 'range', min: 60, max: 120, step: 1, unit: 'ºC' },
-            { name: 'pbb902_1_vazao', label: 'Vazão', type: 'range', min: 0, max: 12, step: 0.1, unit: 'm³/h' },
-            { name: 'pbb902_1_frequencia', label: 'Frequência', type: 'range', min: 0, max: 60, step: 0.1, unit: 'Hz' },
-            { name: 'pbb902_1_pressao_saida', label: 'Pressão Saída', type: 'range', min: 0, max: 4, step: 0.1, unit: 'Bar' },
-            { name: 'pbb902_1_nivel_oleo', label: 'Nível de Óleo', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'pbb902_1_horimetro', label: 'Horímetro', type: 'number' },
-            // PBB902.2 (BJJ905)
-            { name: 'pbb902_2_status', label: 'Status PBB902.2 (BJJ905)', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'pbb902_2_temp', label: 'Temp.', type: 'range', min: 60, max: 120, step: 1, unit: 'ºC' },
-            { name: 'pbb902_2_vazao', label: 'Vazão', type: 'range', min: 0, max: 12, step: 0.1, unit: 'm³/h' },
-            { name: 'pbb902_2_frequencia', label: 'Frequência', type: 'range', min: 0, max: 60, step: 0.1, unit: 'Hz' },
-            { name: 'pbb902_2_pressao_saida', label: 'Pressão Saída', type: 'range', min: 0, max: 4, step: 0.1, unit: 'Bar' },
-            { name: 'pbb902_2_nivel_oleo', label: 'Nível de Óleo', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'pbb902_2_horimetro', label: 'Horímetro', type: 'number' },
-            // PBB902.3 (BJJ906)
-            { name: 'pbb902_3_status', label: 'Status PBB902.3 (BJJ906)', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'pbb902_3_temp', label: 'Temp.', type: 'range', min: 60, max: 120, step: 1, unit: 'ºC' },
-            { name: 'pbb902_3_vazao', label: 'Vazão', type: 'range', min: 0, max: 12, step: 0.1, unit: 'm³/h' },
-            { name: 'pbb902_3_frequencia', label: 'Frequência', type: 'range', min: 0, max: 60, step: 0.1, unit: 'Hz' },
-            { name: 'pbb902_3_pressao_saida', label: 'Pressão Saída', type: 'range', min: 0, max: 4, step: 0.1, unit: 'Bar' },
-            { name: 'pbb902_3_nivel_oleo', label: 'Nível de Óleo', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'pbb902_3_horimetro', label: 'Horímetro', type: 'number' }
-        ]
-    },
-    'bombas-transferencia-oc': {
-        title: 'Bombas de Transferência O.C',
-        icon: '⛽',
-        fields: [
-            // Bombas transf. HFO
-            { name: 'pac901_1_status', label: 'Status PAC901.1', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'pac901_2_status', label: 'Status PAC901.2', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'pca902_status', label: 'Status PCA902 (Feeder HFO)', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            // Feeder LFO
-            { name: 'pca903_1_status', label: 'Status PCA903.1 (Feeder LFO)', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'pca903_2_status', label: 'Status PCA903.2 (Feeder LFO)', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            // Feeder OL
-            { name: 'feeder_ol_fluxometro', label: 'Fluxômetro Feeder OL', type: 'number', unit: 'Acumulado em m³' }
-        ]
-    },
-    'caldeiras-rcc': {
-        title: 'Caldeiras RCC',
-        icon: '♨️',
-        fields: [
-            // RCC061
-            { name: 'rcc061_status', label: 'Status RCC061', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'rcc061_temp_entrada', label: 'Temp. Entrada', type: 'range', min: 0, max: 500, step: 1, unit: 'ºC' },
-            { name: 'rcc061_temp_saida', label: 'Temp. Saída', type: 'range', min: 0, max: 500, step: 1, unit: 'ºC' },
-            { name: 'rcc061_temp_agua', label: 'Temp. Água', type: 'range', min: 0, max: 200, step: 1, unit: 'ºC' },
-            { name: 'rcc061_nivel_agua', label: 'Nível de Água', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'rcc061_pressao_saida', label: 'Pressão Saída', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar' },
-            // RCC121
-            { name: 'rcc121_status', label: 'Status RCC121', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'rcc121_temp_entrada', label: 'Temp. Entrada', type: 'range', min: 0, max: 500, step: 1, unit: 'ºC' },
-            { name: 'rcc121_temp_saida', label: 'Temp. Saída', type: 'range', min: 0, max: 500, step: 1, unit: 'ºC' },
-            { name: 'rcc121_temp_agua', label: 'Temp. Água', type: 'range', min: 0, max: 200, step: 1, unit: 'ºC' },
-            { name: 'rcc121_nivel_agua', label: 'Nível de Água', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'rcc121_pressao_saida', label: 'Pressão Saída', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar' },
-            // RCC181
-            { name: 'rcc181_status', label: 'Status RCC181', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'rcc181_temp_entrada', label: 'Temp. Entrada', type: 'range', min: 0, max: 500, step: 1, unit: 'ºC' },
-            { name: 'rcc181_temp_saida', label: 'Temp. Saída', type: 'range', min: 0, max: 500, step: 1, unit: 'ºC' },
-            { name: 'rcc181_temp_agua', label: 'Temp. Água', type: 'range', min: 0, max: 200, step: 1, unit: 'ºC' },
-            { name: 'rcc181_nivel_agua', label: 'Nível de Água', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'rcc181_pressao_saida', label: 'Pressão Saída', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar' },
-            // RCC191
-            { name: 'rcc191_status', label: 'Status RCC191', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'rcc191_temp_entrada', label: 'Temp. Entrada', type: 'range', min: 0, max: 500, step: 1, unit: 'ºC' },
-            { name: 'rcc191_temp_saida', label: 'Temp. Saída', type: 'range', min: 0, max: 500, step: 1, unit: 'ºC' },
-            { name: 'rcc191_temp_agua', label: 'Temp. Água', type: 'range', min: 0, max: 200, step: 1, unit: 'ºC' },
-            { name: 'rcc191_nivel_agua', label: 'Nível de Água', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'rcc191_pressao_saida', label: 'Pressão Saída', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar' },
-            // RCC201
-            { name: 'rcc201_status', label: 'Status RCC201', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'rcc201_temp_entrada', label: 'Temp. Entrada', type: 'range', min: 0, max: 500, step: 1, unit: 'ºC' },
-            { name: 'rcc201_temp_saida', label: 'Temp. Saída', type: 'range', min: 0, max: 500, step: 1, unit: 'ºC' },
-            { name: 'rcc201_temp_agua', label: 'Temp. Água', type: 'range', min: 0, max: 200, step: 1, unit: 'ºC' },
-            { name: 'rcc201_nivel_agua', label: 'Nível de Água', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'rcc201_pressao_saida', label: 'Pressão Saída', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar' }
-        ]
-    },
-    'caldeiras-rce': {
-        title: 'Caldeiras RCE',
-        icon: '🔥',
-        fields: [
-            // RCE901
-            { name: 'rce901_status', label: 'Status RCE901', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'rce901_pressao_saida', label: 'Pressão Saída', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar' },
-            { name: 'rce901_nivel_agua', label: 'Nível de Água', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'rce901_temp_agua', label: 'Temp. Água', type: 'range', min: 0, max: 200, step: 1, unit: 'ºC' },
-            { name: 'rce901_nivel_combustivel', label: 'Nível de Combustível', type: 'range', min: 0, max: 1680, step: 1, unit: 'L' },
-            // RCE902
-            { name: 'rce902_status', label: 'Status RCE902', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'rce902_pressao_saida', label: 'Pressão Saída', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar' },
-            { name: 'rce902_nivel_agua', label: 'Nível de Água', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'rce902_temp_agua', label: 'Temp. Água', type: 'range', min: 0, max: 200, step: 1, unit: 'ºC' },
-            { name: 'rce902_nivel_combustivel', label: 'Nível de Combustível', type: 'range', min: 0, max: 1680, step: 1, unit: 'L' }
-        ]
-    },
-    'container-caldeiras-rhc': {
-        title: 'Container Controle das Caldeiras RHC',
-        icon: '🎛️',
-        fields: [
-            { name: 'rbb901_1_status', label: 'Status Bomba RBB901.1', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'rbb901_1_frequencia', label: 'Frequência RBB901.1', type: 'range', min: 0, max: 60, step: 0.1, unit: 'Hz' },
-            { name: 'rbb901_2_status', label: 'Status Bomba RBB901.2', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'rbb902_1_status', label: 'Status Bomba de Condensado RBB902.1', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'rbb902_2_status', label: 'Status Bomba de Condensado RBB902.2', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'rda901_pressao', label: 'Pressão RDA901', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar' },
-            { name: 'rda902_pressao', label: 'Pressão RDA902', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar' },
-            { name: 'rba901_volume', label: 'Tanque RBA901 - Volume', type: 'number', unit: 'm³' },
-            { name: 'rba901_temp', label: 'Tanque RBA901 - Temp.', type: 'range', min: 20, max: 100, step: 1, unit: 'ºC' },
-            { name: 'nivel_alcalinizante', label: 'Nível de Alcalinizante', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'nivel_sequestrante', label: 'Nível de Sequestrante de Oxigênio', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'nivel_dispersante', label: 'Nível de Dispersante', type: 'range', min: 0, max: 100, step: 1, unit: '%' }
-        ]
-    },
-    'bombas-transferencia-ao': {
-        title: 'Bombas de Transferência AO (DAD)',
-        icon: '🛢️',
-        fields: [
-            { name: 'dad901_status', label: 'Status Bomba DAD901', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'dad901_nivel', label: 'Nível DAD901', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'dad902_status', label: 'Status Bomba DAD902', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'dad902_nivel', label: 'Nível DAD902', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'dad903_status', label: 'Status Bomba DAD903', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'dad903_nivel', label: 'Nível DAD903', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'dad904_status', label: 'Status Bomba DAD904', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'dad904_nivel', label: 'Nível DAD904', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'dad905_status', label: 'Status Bomba DAD905', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'dad905_nivel', label: 'Nível DAD905', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'dad906_status', label: 'Status Bomba DAD906', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'dad906_nivel', label: 'Nível DAD906', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'dad908_status', label: 'Status Bomba DAD908', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'dad908_nivel', label: 'Nível DAD908', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'dad909_status', label: 'Status Bomba DAD909', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'dad909_nivel', label: 'Nível DAD909', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'dad910_status', label: 'Status Bomba DAD910', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'dad910_nivel', label: 'Nível DAD910', type: 'range', min: 0, max: 100, step: 1, unit: '%' }
-        ]
-    },
-    'gerador-emergencia': {
-        title: 'Gerador de Emergência',
-        icon: '⚡',
-        fields: [
-            { name: 'gerador_status', label: 'Status do Gerador SAB901', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'gerador_bateria_tensao', label: 'Tensão Bateria', type: 'range', min: 0, max: 16, step: 0.1, unit: 'V', default: 12 },
-            // AJUSTE 3: Campos renomeados para evitar conflito com 'container-incendio'
-            { name: 'gerador_radiador_agua', label: 'Nível Água do Radiador', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'gerador_oleo_lubrificante', label: 'Nível de Óleo Lubrificante', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'gerador_oleo_combustivel', label: 'Nível de Óleo Combustível', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'gerador_horimetro', label: 'Horímetro', type: 'number', unit: 'acumulado m³' }
-        ]
-    },
-    'subestacao': {
-        title: 'Subestação',
-        icon: '🔌',
-        fields: [
-            // TR01
-            { name: 'tr01_status', label: 'Status do TR01', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'tr01_temp_enrolamento', label: 'Temp. Enrolamento', type: 'range', min: 0, max: 150, step: 1, unit: 'ºC' },
-            // O campo 'unit' para nível de óleo isolante foi corrigido para '%' (assumindo que seja nível)
-            { name: 'tr01_nivel_oleo_isolante', label: 'Nível do Óleo Isolante', type: 'range', min: 0, max: 100, step: 1, unit: '%' }, 
-            { name: 'tr01_cor_silica', label: 'Cor da Sílica', type: 'select', options: ['Azul', 'Branca', 'Laranja'] },
-            { name: 'tr01_nivel_oleo_selante', label: 'Nível do Óleo Selante da Sílica', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            // TR02
-            { name: 'tr02_status', label: 'Status do TR02', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'tr02_temp_enrolamento', label: 'Temp. Enrolamento', type: 'range', min: 0, max: 150, step: 1, unit: 'ºC' },
-            { name: 'tr02_nivel_oleo_isolante', label: 'Nível do Óleo Isolante', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'tr02_cor_silica', label: 'Cor da Sílica', type: 'select', options: ['Azul', 'Branca', 'Laranja'] },
-            { name: 'tr02_nivel_oleo_selante', label: 'Nível do Óleo Selante da Sílica', type: 'range', min: 0, max: 100, step: 1, unit: '%' }
-        ]
-    },
-    'temperaturas-salas': {
-        title: 'Temperaturas Salas',
-        icon: '🌡️',
-        fields: [
-            { name: 'sala_rele_temp', label: 'Sala de Relé SE-PE3 - Temp.', type: 'range', min: 15, max: 30, step: 0.1, unit: 'ºC' },
-            { name: 'sala_rele_umidade', label: 'Sala de Relé SE-PE3 - Umidade', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'sala_mv1_temp', label: 'Sala de MV1 - Temp.', type: 'range', min: 15, max: 40, step: 0.1, unit: 'ºC' },
-            { name: 'sala_mv1_umidade', label: 'Sala de MV1 - Umidade', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'sala_mv2_temp', label: 'Sala de MV2 - Temp.', type: 'range', min: 15, max: 40, step: 0.1, unit: 'ºC' },
-            { name: 'sala_mv2_umidade', label: 'Sala de MV2 - Umidade', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'sala_lv1_temp', label: 'Sala de LV1 - Temp.', type: 'range', min: 15, max: 40, step: 0.1, unit: 'ºC' },
-            { name: 'sala_lv1_umidade', label: 'Sala de LV1 - Umidade', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'sala_lv2_temp', label: 'Sala de LV2 SE-PE3 - Temp.', type: 'range', min: 15, max: 40, step: 0.1, unit: 'ºC' },
-            { name: 'sala_lv2_umidade', label: 'Sala de LV2 SE-PE3 - Umidade', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'sala_lv3_temp', label: 'Sala de LV3 (FTH) SE-PE3 - Temp.', type: 'range', min: 15, max: 30, step: 0.1, unit: 'ºC' },
-            { name: 'sala_lv3_umidade', label: 'Sala de LV3 (FTH) SE-PE3 - Umidade', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'sala_lv4_temp', label: 'Sala de LV4 (Controle) SE-PE3 - Temp.', type: 'range', min: 15, max: 30, step: 0.1, unit: 'ºC' },
-            { name: 'sala_lv4_umidade', label: 'Sala de LV4 (Controle) SE-PE3 - Umidade', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'sala_sv1_temp', label: 'Sala de SV1 - Temp.', type: 'range', min: 15, max: 40, step: 0.1, unit: 'ºC' },
-            { name: 'sala_sv1_umidade', label: 'Sala de SV1 - Umidade', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'sala_sv2_temp', label: 'Sala de SV2 - Temp.', type: 'range', min: 15, max: 40, step: 0.1, unit: 'ºC' },
-            { name: 'sala_sv2_umidade', label: 'Sala de SV2 - Umidade', type: 'range', min: 0, max: 100, step: 1, unit: '%' }
-        ]
-    },
-    'anormalidades': {
-        title: 'Anormalidades',
-        icon: '⚠️',
-        fields: (() => {
-            const fields = [];
-            for (let i = 1; i <= 6; i++) {
-                fields.push({
-                    name: `descricao_${i}`,
-                    label: `Descrição Anormalidade ${i}`,
-                    type: 'textarea',
-                    placeholder: 'Descreva a anormalidade e o local',
-                    required: false
-                });
-                fields.push({
-                    name: `local_${i}`,
-                    label: `Local Anormalidade ${i}`,
-                    type: 'text',
-                    placeholder: 'Local da anormalidade',
-                    required: false
-                });
-                fields.push({
-                    // AJUSTE 2: Campo renomeado para corresponder ao Apps Script: 'foto_anomaliaX'
-                    name: `foto_anomalia${i}`, 
-                    label: `Anexar Imagem ${i}`,
-                    type: 'file',
-                    accept: 'image/*',
-                    required: false
-                });
-            }
-            return fields;
-        })()
+// Variáveis globais de estado
+let formDataState = {};
+let activeWindowName = null;
+
+// Referências DOM
+const windowsGrid = document.querySelector('.windows-grid');
+const modalOverlay = document.getElementById('modalOverlay');
+const modalTitle = document.getElementById('modalTitle');
+const formFieldsDiv = document.getElementById('formFields');
+const windowForm = document.getElementById('windowForm');
+const submitReportButton = document.getElementById('submitReport');
+const jumpMenu = document.getElementById('jumpMenu');
+
+// Variáveis de Canvas para Assinatura
+let signatureCanvas, signatureCtx, isDrawing = false;
+let signatureBlob = null; // Armazena o Blob da assinatura
+
+// =========================================================================
+// 1. RENDERIZAÇÃO DO GRID DE JANELAS E MENU RÁPIDO
+// =========================================================================
+
+/**
+ * Inicializa o grid de janelas e o menu de navegação rápida.
+ */
+function initializeGrid() {
+    windowsGrid.innerHTML = '';
+    
+    // Preencher o menu rápido e o grid
+    Object.keys(FORM_STRUCTURE).forEach(sectionKey => {
+        const section = FORM_STRUCTURE[sectionKey];
+
+        // 1. Criar opção no menu de Navegação Rápida
+        const option = document.createElement('option');
+        option.value = sectionKey;
+        option.textContent = `${section.icon} ${section.title}`;
+        jumpMenu.appendChild(option);
+
+        // 2. Criar Janela no Grid
+        const windowDiv = document.createElement('div');
+        windowDiv.className = 'window-card incomplete'; // Começa como incompleta
+        windowDiv.id = `card-${sectionKey}`;
+        windowDiv.dataset.section = sectionKey;
+        
+        windowDiv.innerHTML = `
+            <h2>${section.icon} ${section.title}</h2>
+            <p id="status-${sectionKey}">Faltando dados</p>
+            <button class="edit-button">Editar</button>
+        `;
+        windowDiv.querySelector('.edit-button').addEventListener('click', () => openModal(sectionKey));
+        windowsGrid.appendChild(windowDiv);
+        
+        // Inicializar o estado dos dados
+        formDataState[sectionKey] = {};
+    });
+
+    // Exibir o Jump Menu
+    document.getElementById('jumpMenuContainer').style.display = 'block';
+}
+
+/**
+ * Navega rapidamente para a seção clicada no menu suspenso.
+ */
+function jumpToField(sectionKey) {
+    if (sectionKey) {
+        const targetElement = document.getElementById(`card-${sectionKey}`);
+        if (targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     }
-};
+}
+
+
+// =========================================================================
+// 2. MODAL E GERENCIAMENTO DE CAMPOS (INCLUINDO ASSINATURA)
+// =========================================================================
+
+/**
+ * Abre o modal de edição para uma seção específica.
+ */
+function openModal(sectionKey) {
+    activeWindowName = sectionKey;
+    const section = FORM_STRUCTURE[sectionKey];
+    modalTitle.textContent = `${section.icon} ${section.title}`;
+    formFieldsDiv.innerHTML = '';
+
+    // Renderizar campos
+    section.fields.forEach(field => {
+        const fieldGroup = createFieldElement(field);
+        formFieldsDiv.appendChild(fieldGroup);
+    });
+
+    // Se for a seção de dados iniciais, inicializa o canvas de assinatura
+    if (sectionKey === 'dados-iniciais') {
+        initializeSignatureCanvas();
+    }
+    
+    // Preencher com dados salvos
+    loadFormData(sectionKey);
+    
+    modalOverlay.style.display = 'flex';
+}
+
+/**
+ * Cria o elemento DOM para um campo de formulário, tratando o tipo 'file' para assinatura.
+ */
+function createFieldElement(field) {
+    const fieldGroup = document.createElement('div');
+    fieldGroup.className = 'field-group';
+
+    // RENDERIZAÇÃO DO CANVAS (APENAS PARA O CAMPO DE ASSINATURA)
+    if (field.name === 'assinatura' && field.type === 'file') {
+        fieldGroup.className += ' signature-container';
+        fieldGroup.innerHTML = `
+            <label>${field.label}</label>
+            <canvas id="signatureCanvas" width="350" height="150" style="border: 1px solid #ccc; touch-action: none;"></canvas>
+            <div class="signature-controls">
+                <button type="button" id="clearSignatureButton">Limpar</button>
+                <p class="signature-hint">Desenhe sua assinatura acima.</p>
+            </div>
+        `;
+        return fieldGroup;
+    }
+
+    // RENDERIZAÇÃO DE CAMPOS NORMAIS (text, number, range, select, status, etc.)
+    const label = document.createElement('label');
+    label.htmlFor = field.name;
+    label.textContent = field.label + (field.unit ? ` (${field.unit})` : '');
+
+    let inputElement;
+
+    if (field.type === 'textarea') {
+        inputElement = document.createElement('textarea');
+        inputElement.rows = 3;
+    } else if (field.type === 'select' || field.type === 'status') {
+        inputElement = document.createElement('select');
+        field.options.forEach(optionValue => {
+            const option = document.createElement('option');
+            option.value = optionValue;
+            option.textContent = optionValue;
+            inputElement.appendChild(option);
+        });
+    } else {
+        inputElement = document.createElement('input');
+        inputElement.type = field.type;
+        if (field.placeholder) inputElement.placeholder = field.placeholder;
+        if (field.min !== undefined) inputElement.min = field.min;
+        if (field.max !== undefined) inputElement.max = field.max;
+        if (field.step !== undefined) inputElement.step = field.step;
+    }
+
+    inputElement.id = field.name;
+    inputElement.name = field.name;
+
+    fieldGroup.appendChild(label);
+    fieldGroup.appendChild(inputElement);
+
+    return fieldGroup;
+}
+
+/**
+ * Preenche o formulário modal com os dados atualmente salvos.
+ */
+function loadFormData(sectionKey) {
+    const data = formDataState[sectionKey] || {};
+    
+    Object.keys(data).forEach(fieldName => {
+        const fieldElement = document.getElementById(fieldName);
+        if (fieldElement) {
+            // Não carrega a assinatura (o canvas deve ser manipulado separadamente)
+            if (fieldName === 'assinatura') return; 
+
+            if (fieldElement.type === 'checkbox') {
+                fieldElement.checked = data[fieldName];
+            } else {
+                fieldElement.value = data[fieldName];
+            }
+        }
+    });
+
+    // Carregar Assinatura salva (se houver um blob salvo)
+    if (sectionKey === 'dados-iniciais' && signatureBlob) {
+        if (signatureCanvas) {
+            // Desenhar o blob salvo no canvas para visualização/edição
+            const img = new Image();
+            img.onload = () => {
+                signatureCtx.drawImage(img, 0, 0, signatureCanvas.width, signatureCanvas.height);
+            };
+            img.src = URL.createObjectURL(signatureBlob);
+        }
+    }
+}
+
+// =========================================================================
+// 3. LÓGICA DO CANVAS DE ASSINATURA
+// =========================================================================
+
+function initializeSignatureCanvas() {
+    signatureCanvas = document.getElementById('signatureCanvas');
+    if (!signatureCanvas) return;
+    
+    signatureCtx = signatureCanvas.getContext('2d');
+    signatureCtx.lineWidth = 3;
+    signatureCtx.lineCap = 'round';
+    signatureCtx.strokeStyle = '#000';
+
+    // Configuração de Eventos
+    signatureCanvas.addEventListener('pointerdown', startDrawing);
+    signatureCanvas.addEventListener('pointerup', stopDrawing);
+    signatureCanvas.addEventListener('pointerout', stopDrawing);
+    signatureCanvas.addEventListener('pointermove', draw);
+    
+    document.getElementById('clearSignatureButton').addEventListener('click', clearSignature);
+
+    // Se houver um blob salvo, ele é carregado em loadFormData, mas garante que o blob está disponível
+    if (signatureBlob) {
+        // Redesenhar o blob no canvas se já existir
+        loadFormData('dados-iniciais');
+    }
+}
+
+function startDrawing(e) {
+    e.preventDefault();
+    isDrawing = true;
+    const rect = signatureCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    signatureCtx.beginPath();
+    signatureCtx.moveTo(x, y);
+}
+
+function draw(e) {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const rect = signatureCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    signatureCtx.lineTo(x, y);
+    signatureCtx.stroke();
+}
+
+function stopDrawing() {
+    isDrawing = false;
+}
+
+function clearSignature() {
+    signatureCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+    signatureBlob = null;
+}
+
+/**
+ * Converte o canvas para Blob e salva na variável global.
+ */
+function saveSignature() {
+    if (!signatureCanvas) return;
+    
+    // Verifica se o canvas está em branco
+    const isCanvasBlank = !signatureCtx.getImageData(0, 0, signatureCanvas.width, signatureCanvas.height).data.some(channel => channel !== 0);
+    
+    if (isCanvasBlank) {
+        signatureBlob = null;
+    } else {
+        // Converte o conteúdo do canvas para um Blob de imagem (PNG)
+        signatureCanvas.toBlob(blob => {
+            signatureBlob = blob;
+            // O blob precisa de um nome de arquivo para ser processado pelo Apps Script
+            blob.name = 'assinatura.png';
+        }, 'image/png');
+    }
+}
+
+
+// =========================================================================
+// 4. LÓGICA DE ENVIO E GERENCIAMENTO DE ESTADO
+// =========================================================================
+
+/**
+ * Salva os dados do formulário modal no estado global.
+ */
+function saveFormData() {
+    const currentData = {};
+    const section = FORM_STRUCTURE[activeWindowName];
+    let isComplete = true;
+
+    // 1. Coletar dados dos campos normais
+    section.fields.forEach(field => {
+        const element = document.getElementById(field.name);
+        if (element) {
+            let value;
+            if (field.type === 'file' && field.name !== 'assinatura') {
+                // Arquivos são tratados separadamente, o campo de texto guarda o nome
+                value = element.files[0] ? element.files[0].name : '';
+            } else if (field.name === 'assinatura') {
+                // A assinatura é tratada separadamente, aqui guardamos uma flag
+                value = signatureBlob ? 'assinatura.png' : '';
+            } else if (element.type === 'checkbox') {
+                value = element.checked;
+            } else {
+                value = element.value;
+            }
+            
+            currentData[field.name] = value;
+            
+            // Checar obrigatoriedade
+            if (field.required && !value) {
+                isComplete = false;
+            }
+        }
+    });
+
+    // 2. Salvar Assinatura (se for a seção inicial)
+    if (activeWindowName === 'dados-iniciais') {
+        saveSignature(); 
+        if (section.fields.find(f => f.name === 'assinatura' && f.required) && !signatureBlob) {
+             // Se a assinatura for obrigatória e o blob não foi gerado
+             // (Pode exigir um setTimeout para garantir que toBlob terminou, mas vamos simplificar aqui)
+             // isComplete = false; 
+        }
+    }
+    
+    // 3. Atualizar Estado
+    formDataState[activeWindowName] = currentData;
+    updateWindowStatus(activeWindowName, isComplete);
+    
+    // 4. Fechar Modal
+    modalOverlay.style.display = 'none';
+    checkAllSectionsComplete();
+}
+
+/**
+ * Atualiza o status visual de uma seção no grid.
+ */
+function updateWindowStatus(sectionKey, isComplete) {
+    const card = document.getElementById(`card-${sectionKey}`);
+    const statusP = document.getElementById(`status-${sectionKey}`);
+    
+    if (isComplete) {
+        card.classList.remove('incomplete');
+        card.classList.add('complete');
+        statusP.textContent = 'Completo';
+    } else {
+        card.classList.remove('complete');
+        card.classList.add('incomplete');
+        statusP.textContent = 'Faltando dados';
+    }
+}
+
+/**
+ * Verifica se todas as seções estão completas para habilitar o botão de envio.
+ */
+function checkAllSectionsComplete() {
+    const allComplete = Object.keys(FORM_STRUCTURE).every(key => {
+        const card = document.getElementById(`card-${key}`);
+        return card && card.classList.contains('complete');
+    });
+
+    submitReportButton.disabled = !allComplete;
+}
+
+/**
+ * Lida com o envio final de todos os dados e arquivos para o Apps Script.
+ */
+async function submitReport() {
+    if (submitReportButton.disabled) return;
+
+    const finalFormData = new FormData();
+    let filesCount = 0;
+
+    // 1. Coletar todos os dados de texto e arquivos
+    Object.keys(FORM_STRUCTURE).forEach(sectionKey => {
+        const sectionData = formDataState[sectionKey];
+        const sectionFields = FORM_STRUCTURE[sectionKey].fields;
+
+        sectionFields.forEach(field => {
+            const fieldName = field.name;
+            const fieldValue = sectionData[fieldName];
+
+            if (field.type === 'file' && fieldName !== 'assinatura') {
+                // 1a. Tratar arquivos de anomalia
+                const inputElement = document.getElementById(fieldName);
+                if (inputElement && inputElement.files[0]) {
+                    finalFormData.append(fieldName, inputElement.files[0], fieldValue);
+                    filesCount++;
+                }
+            } else if (fieldName === 'assinatura' && signatureBlob) {
+                // 1b. Tratar Assinatura (o blob foi salvo anteriormente)
+                // Usamos o blob salvo e damos o nome de arquivo
+                finalFormData.append(fieldName, signatureBlob, 'assinatura.png');
+                filesCount++;
+            } else {
+                // 1c. Tratar dados de texto (incluindo paths de arquivos vazios)
+                finalFormData.append(fieldName, fieldValue || '');
+            }
+        });
+    });
+
+    // 2. Exibir o spinner de carregamento
+    showSpinner('Enviando relatório e arquivos. Aguarde...');
+
+    // 3. Enviar para o Apps Script
+    try {
+        const url = 'SEU_URL_APPS_SCRIPT_DEPLOY'; // Substitua pelo seu URL de implantação
+        const response = await fetch(url, {
+            method: 'POST',
+            body: finalFormData,
+            // Não defina Content-Type; o FormData fará isso automaticamente com boundary.
+        });
+
+        const result = await response.text();
+
+        if (result === 'ok') {
+            alert('Relatório enviado com sucesso!');
+            window.location.reload(); // Recarregar a página para novo formulário
+        } else {
+            alert('Erro ao enviar o relatório. Detalhes: ' + result);
+        }
+
+    } catch (error) {
+        alert('Erro de rede ou servidor: ' + error.message);
+    } finally {
+        hideSpinner();
+    }
+}
+
+// =========================================================================
+// 5. EVENT LISTENERS E INICIALIZAÇÃO
+// =========================================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    initializeGrid();
+    
+    // Eventos do Modal
+    modalClose.addEventListener('click', () => modalOverlay.style.display = 'none');
+    modalCancel.addEventListener('click', () => modalOverlay.style.display = 'none');
+    windowForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        // A função saveSignature pode ser assíncrona (toBlob), então o ideal seria
+        // envolver isso em uma Promise, mas para simplificar, chamamos a saveFormData
+        // após uma pequena pausa para o toBlob rodar.
+        saveSignature(); 
+        setTimeout(saveFormData, 100); 
+    });
+    
+    // Evento de envio final
+    submitReportButton.addEventListener('click', submitReport);
+    
+    // Inicialização do campo 'data'
+    const today = new Date().toISOString().split('T')[0];
+    FORM_STRUCTURE['dados-iniciais'].fields.find(f => f.name === 'data').default = today;
+});
+
+// Implementação simples de spinner (requer o arquivo spinner.js e spinner.css)
+function showSpinner(message = 'Carregando...') {
+    const spinner = document.getElementById('loadingSpinner') || createSpinnerElement();
+    spinner.querySelector('p').textContent = message;
+    document.body.appendChild(spinner);
+}
+
+function hideSpinner() {
+    const spinner = document.getElementById('loadingSpinner');
+    if (spinner) {
+        spinner.remove();
+    }
+}
+
+// Cria o elemento spinner (se não estiver definido em spinner.js)
+function createSpinnerElement() {
+    const spinner = document.createElement('div');
+    spinner.id = 'loadingSpinner';
+    spinner.className = 'spinner-overlay';
+    spinner.innerHTML = `
+        <div class="spinner-container">
+            <div class="spinner"></div>
+            <p></p>
+        </div>
+    `;
+    return spinner;
+}
