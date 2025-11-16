@@ -15,23 +15,19 @@
   </header>
 
   <div class="container">
-    <!-- Menu Suspenso de Navegação Rápida (Jump Menu) -->
     <div id="jumpMenuContainer" class="jump-menu-container" style="display: none;">
       <select id="jumpMenu" class="jump-menu-select" onchange="jumpToField(this.value)">
         <option value="">Navegação Rápida (Tags)</option>
       </select>
     </div>
 
-    <!-- Grid de Janelas (preenchido dinamicamente) -->
     <div class="windows-grid"></div>
-    <!-- Modal Overlay para formulário -->
     <div class="modal-overlay" id="modalOverlay">
       <div class="modal-content" id="modalContent">
         <div class="modal-header">
           <h2 id="modalTitle">Título</h2>
           <button class="modal-close" id="modalClose">✕</button>
         </div>
-        <!-- Menu de tags para navegação rápida entre equipamentos (preenchido via script) -->
         <div id="tagMenuModal" class="tag-menu"></div>
         <form id="windowForm">
           <div id="formFields"></div>
@@ -42,16 +38,12 @@
         </form>
       </div>
     </div>
-    <!-- Seção de envio -->
     <div class="submit-section">
       <button type="button" id="submitReport" disabled>📤 Enviar Relatório Completo</button>
     </div>
   </div>
-  <!-- Estrutura de dados para inspeção externa -->
   <script src="data_structure.js"></script>
-  <!-- Script para o componente Spinner -->
   <script src="spinner.js"></script>
-  <!-- Script genérico de formulários -->
   <script src="script.js"></script>
 </body>
 </html>
