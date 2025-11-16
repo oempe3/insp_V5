@@ -1,62 +1,57 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INSP-UTPT | Inspeção Externa</title>
-    <link rel="stylesheet" href="style.css"> <link rel="stylesheet" href="spinner.css"> </head>
-<body>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Formulário - Inspeção Externa</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="spinner.css">
+</head>
+<body data-form-type="externo">
+  <header>
+    <img src="logo.png" alt="Logomarca Termelétrica Pernambuco III">
+    <h1>Inspeção Externa</h1>
+    <p>Formulário de Inspeção On-Line</p>
+  </header>
 
-    <header>
-        <h1>Inspeção Externa UTE Pernambuco 3</h1>
-        <p>Preencha todas as seções para liberar o envio do relatório.</p>
-    </header>
-
-    <main class="container">
-        
-        <div id="jumpMenuContainer" style="display: none; margin-bottom: 20px;">
-            <label for="jumpMenu">Navegação Rápida:</label>
-            <select id="jumpMenu" onchange="jumpToField(this.value)">
-                <option value="">-- Selecione a Seção --</option>
-                </select>
-        </div>
-
-        <div class="windows-grid">
-            </div>
-
-        <div class="submit-container">
-            <button id="submitReport" disabled class="btn-primary">Preencha todos os campos</button>
-        </div>
-
-    </main>
-
-    <div id="modalOverlay" class="modal-overlay">
-        <div class="modal-content">
-            <header>
-                <h2 id="modalTitle">Título da Seção</h2>
-                <button id="modalClose" class="close-button">&times;</button>
-            </header>
-            
-            <form id="windowForm">
-                <div id="formFields" class="form-fields">
-                    </div>
-                
-                <footer>
-                    <button type="button" id="modalCancel" class="btn-secondary">Cancelar</button>
-                    <button type="submit" class="btn-primary">Salvar e Fechar</button>
-                </footer>
-            </form>
-        </div>
+  <div class="container">
+    <!-- Menu Suspenso de Navegação Rápida (Jump Menu) -->
+    <div id="jumpMenuContainer" class="jump-menu-container" style="display: none;">
+      <select id="jumpMenu" class="jump-menu-select" onchange="jumpToField(this.value)">
+        <option value="">Navegação Rápida (Tags)</option>
+      </select>
     </div>
 
-    <div id="loadingSpinner" class="spinner-overlay" style="display: none;">
-        <div class="spinner-container">
-            <div class="spinner"></div>
-            <p>Enviando relatório e arquivos. Aguarde...</p>
+    <!-- Grid de Janelas (preenchido dinamicamente) -->
+    <div class="windows-grid"></div>
+    <!-- Modal Overlay para formulário -->
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal-content" id="modalContent">
+        <div class="modal-header">
+          <h2 id="modalTitle">Título</h2>
+          <button class="modal-close" id="modalClose">✕</button>
         </div>
+        <!-- Menu de tags para navegação rápida entre equipamentos (preenchido via script) -->
+        <div id="tagMenuModal" class="tag-menu"></div>
+        <form id="windowForm">
+          <div id="formFields"></div>
+          <div class="button-group">
+            <button type="button" id="modalCancel">Cancelar</button>
+            <button type="submit">Salvar</button>
+          </div>
+        </form>
+      </div>
     </div>
-
-    <script src="data_structure.js"></script>
-    <script src="script.js"></script> 
-    </body>
+    <!-- Seção de envio -->
+    <div class="submit-section">
+      <button type="button" id="submitReport" disabled>📤 Enviar Relatório Completo</button>
+    </div>
+  </div>
+  <!-- Estrutura de dados para inspeção externa -->
+  <script src="data_structure.js"></script>
+  <!-- Script para o componente Spinner -->
+  <script src="spinner.js"></script>
+  <!-- Script genérico de formulários -->
+  <script src="script.js"></script>
+</body>
 </html>
