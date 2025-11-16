@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Formulário - Inspeção Interna</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="spinner.css">
+</head>
+<body data-form-type="interno">
+  <header>
+    <img src="logo.png" alt="Logomarca Termelétrica Pernambuco III">
+    <h1>Inspeção Interna</h1>
+    <p>Formulário de Inspeção On-Line</p>
+  </header>
+
+  <div class="container">
+    <!-- Menu Suspenso de Navegação Rápida (Jump Menu) -->
+    <div id="jumpMenuContainer" class="jump-menu-container" style="display: none;">
+      <select id="jumpMenu" class="jump-menu-select" onchange="jumpToField(this.value)">
+        <option value="">Navegação Rápida (Tags)</option>
+      </select>
+    </div>
+
+    <!-- Grid de Janelas (será preenchido dinamicamente pelo script.js) -->
+    <div class="windows-grid"></div>
+
+    <!-- Modal Overlay -->
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal-content" id="modalContent">
+        <div class="modal-header">
+          <h2 id="modalTitle">Título</h2>
+          <button class="modal-close" id="modalClose">✕</button>
+        </div>
+        <!-- Menu de tags para navegação rápida entre equipamentos (preenchido via script) -->
+        <div id="tagMenuModal" class="tag-menu"></div>
+        <form id="windowForm">
+          <div id="formFields"></div>
+          <div class="button-group">
+            <button type="button" id="modalCancel">Cancelar</button>
+            <button type="submit">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Submit Section (Fixo no final da página) -->
+    <div class="submit-section">
+      <button type="button" id="submitReport" disabled>📤 Enviar Relatório Completo</button>
+    </div>
+  </div>
+
+  <script src="data_structure_interno.js"></script>
+    <script src="spinner.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

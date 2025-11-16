@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Lista de Destinatários</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="destinatario.js"></script>
+</head>
+<body>
+  <!-- Cartão central para gerenciamento de destinatários -->
+  <div class="index-card">
+    <div class="index-logo">
+      <img src="logo.png" alt="Logomarca Termelétrica Pernambuco III">
+    </div>
+    <h1>Lista de Destinatários</h1>
+    <p>Gerencie os emails que recebem o relatório</p>
+    <form id="destForm" class="dest-form">
+      <div class="form-group">
+        <label for="dest-email">Email</label>
+        <input type="email" id="dest-email" name="email" placeholder="Digite o email" required>
+      </div>
+      <div class="form-group">
+        <label for="dest-senha">Senha</label>
+        <input type="password" id="dest-senha" name="senha" placeholder="Digite a senha" required>
+      </div>
+      <button type="submit" class="btn tertiary">Enviar</button>
+    </form>
+    <div id="destMessage" class="dest-message" style="margin-top: 1rem;"></div>
+  </div>
+</body>
+</html>
