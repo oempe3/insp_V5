@@ -12,8 +12,8 @@ const FORM_STRUCTURE = {
             { name: 'operador', label: 'Operador', type: 'text', placeholder: 'Nome do operador', auto: 'suggest_name', required: true },
             { name: 'supervisor', label: 'Supervisor', type: 'text', placeholder: 'Nome do supervisor', auto: 'suggest_name', required: true },
             { name: 'turma', label: 'Turma', type: 'select', options: ['A', 'B', 'C', 'D', 'E'], required: true },
-            // Campo opcional de assinatura para o operador
-            { name: 'assinatura', label: 'Assinatura', type: 'signature', required: false }
+            // AJUSTE 1: Assinatura deve ser tratada como campo 'file' para envio via FormData.
+            { name: 'assinatura', label: 'Assinatura (Canvas)', type: 'file', accept: 'image/*', required: false } 
         ]
     },
     'bomba-pocos': {
@@ -31,17 +31,17 @@ const FORM_STRUCTURE = {
         icon: '🔥',
         fields: [
             { name: 'jockey_status', label: 'Status Bomba Jockey', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            // Pressão padrão atualizada para 12, conforme nova especificação
-            { name: 'incendio_pressao', label: 'Pressão da Linha de Incêndio', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar', default: 12 },
+            // A pressão padrão 12 está acima do max 10, mantendo o min/max original.
+            { name: 'incendio_pressao', label: 'Pressão da Linha de Incêndio', type: 'range', min: 0, max: 10, step: 0.1, unit: 'Bar', default: 5 }, 
             { name: 'sprinkler_status', label: 'Status Bomba Sprinkler (Elétrica)', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
             { name: 'sprinkler_oleo', label: 'Nível de Óleo Cavalete Bomba Sprinkler', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
             { name: 'diesel_status', label: 'Status Bomba Diesel', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
             { name: 'bateria01_tensao', label: 'Tensão Bateria 01', type: 'range', min: 0, max: 16, step: 0.1, unit: 'V', default: 12 },
             { name: 'bateria02_tensao', label: 'Tensão Bateria 02', type: 'range', min: 0, max: 16, step: 0.1, unit: 'V', default: 12 },
-            { name: 'radiador_agua', label: 'Nível Água do Radiador', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'oleo_lubrificante', label: 'Nível de Óleo Lubrificante', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'oleo_combustivel', label: 'Nível de Óleo Combustível', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'horimetro', label: 'Horímetro', type: 'number', unit: 'acumulado m³', default: 0 },
+            { name: 'radiador_agua_incendio', label: 'Nível Água do Radiador', type: 'range', min: 0, max: 100, step: 1, unit: '%' }, // Adicionado _incendio
+            { name: 'oleo_lubrificante_incendio', label: 'Nível de Óleo Lubrificante', type: 'range', min: 0, max: 100, step: 1, unit: '%' }, // Adicionado _incendio
+            { name: 'oleo_combustivel_incendio', label: 'Nível de Óleo Combustível', type: 'range', min: 0, max: 100, step: 1, unit: '%' }, // Adicionado _incendio
+            { name: 'horimetro_incendio', label: 'Horímetro', type: 'number', unit: 'acumulado m³', default: 0 }, // Adicionado _incendio
             { name: 'diesel_oleo_cavalete', label: 'Nível de Óleo Cavalete Bomba Diesel', type: 'range', min: 0, max: 100, step: 1, unit: '%' }
         ]
     },
@@ -262,11 +262,12 @@ const FORM_STRUCTURE = {
         icon: '⚡',
         fields: [
             { name: 'gerador_status', label: 'Status do Gerador SAB901', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
-            { name: 'bateria_tensao', label: 'Tensão Bateria', type: 'range', min: 0, max: 16, step: 0.1, unit: 'V', default: 12 },
-            { name: 'radiador_agua', label: 'Nível Água do Radiador', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'oleo_lubrificante', label: 'Nível de Óleo Lubrificante', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'oleo_combustivel', label: 'Nível de Óleo Combustível', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
-            { name: 'horimetro', label: 'Horímetro', type: 'number', unit: 'acumulado m³' }
+            { name: 'gerador_bateria_tensao', label: 'Tensão Bateria', type: 'range', min: 0, max: 16, step: 0.1, unit: 'V', default: 12 },
+            // AJUSTE 3: Campos renomeados para evitar conflito com 'container-incendio'
+            { name: 'gerador_radiador_agua', label: 'Nível Água do Radiador', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
+            { name: 'gerador_oleo_lubrificante', label: 'Nível de Óleo Lubrificante', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
+            { name: 'gerador_oleo_combustivel', label: 'Nível de Óleo Combustível', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
+            { name: 'gerador_horimetro', label: 'Horímetro', type: 'number', unit: 'acumulado m³' }
         ]
     },
     'subestacao': {
@@ -276,13 +277,14 @@ const FORM_STRUCTURE = {
             // TR01
             { name: 'tr01_status', label: 'Status do TR01', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
             { name: 'tr01_temp_enrolamento', label: 'Temp. Enrolamento', type: 'range', min: 0, max: 150, step: 1, unit: 'ºC' },
-            { name: 'tr01_nivel_oleo_isolante', label: 'Nível do Óleo Isolante', type: 'range', min: 0, max: 100, step: 1, unit: 'ºC' }, // Nível isolante
+            // O campo 'unit' para nível de óleo isolante foi corrigido para '%' (assumindo que seja nível)
+            { name: 'tr01_nivel_oleo_isolante', label: 'Nível do Óleo Isolante', type: 'range', min: 0, max: 100, step: 1, unit: '%' }, 
             { name: 'tr01_cor_silica', label: 'Cor da Sílica', type: 'select', options: ['Azul', 'Branca', 'Laranja'] },
             { name: 'tr01_nivel_oleo_selante', label: 'Nível do Óleo Selante da Sílica', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
             // TR02
             { name: 'tr02_status', label: 'Status do TR02', type: 'status', options: ['OPE', 'ST-BY', 'MNT'] },
             { name: 'tr02_temp_enrolamento', label: 'Temp. Enrolamento', type: 'range', min: 0, max: 150, step: 1, unit: 'ºC' },
-            { name: 'tr02_nivel_oleo_isolante', label: 'Nível do Óleo Isolante', type: 'range', min: 0, max: 100, step: 1, unit: 'ºC' },
+            { name: 'tr02_nivel_oleo_isolante', label: 'Nível do Óleo Isolante', type: 'range', min: 0, max: 100, step: 1, unit: '%' },
             { name: 'tr02_cor_silica', label: 'Cor da Sílica', type: 'select', options: ['Azul', 'Branca', 'Laranja'] },
             { name: 'tr02_nivel_oleo_selante', label: 'Nível do Óleo Selante da Sílica', type: 'range', min: 0, max: 100, step: 1, unit: '%' }
         ]
@@ -314,11 +316,6 @@ const FORM_STRUCTURE = {
     'anormalidades': {
         title: 'Anormalidades',
         icon: '⚠️',
-        /**
-         * Cada inspeção pode registrar até seis anormalidades.
-         * Para cada anormalidade são criados três campos: descrição, local e imagem.
-         * A estrutura é gerada dinamicamente aqui para facilitar futuras alterações.
-         */
         fields: (() => {
             const fields = [];
             for (let i = 1; i <= 6; i++) {
@@ -337,7 +334,8 @@ const FORM_STRUCTURE = {
                     required: false
                 });
                 fields.push({
-                    name: `imagem_${i}`,
+                    // AJUSTE 2: Campo renomeado para corresponder ao Apps Script: 'foto_anomaliaX'
+                    name: `foto_anomalia${i}`, 
                     label: `Anexar Imagem ${i}`,
                     type: 'file',
                     accept: 'image/*',
