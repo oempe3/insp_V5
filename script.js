@@ -1,21 +1,18 @@
 // =========================================================================
 // VARIÁVEIS GLOBAIS
 // =========================================================================
+// A FORM_STRUCTURE é carregada de 'data_structure.js' (assumindo que seja para o form externo)
 
-// Identifica o tipo de formulário a partir do atributo data-form-type no <body>.
-const formType = document.body?.dataset?.formType || 'interno';
-const STORAGE_KEY = formType === 'externo' ? 'inspecao_dados_externo' : 'inspecao_dados_interno';
-const LAST_NAMES_KEY = formType === 'externo' ? 'inspecao_nomes_externo' : 'inspecao_nomes_interno';
-
-// Se for "interno", a FORM_STRUCTURE deve vir de 'data_structure_interno.js'
-// Se for "externo", a FORM_STRUCTURE deve vir de 'data_structure.js'
-// A variável FORM_STRUCTURE é assumida como carregada globalmente.
+const FORM_TYPE = 'externo'; // Definido explicitamente para o formulário externo
+const STORAGE_KEY = 'inspecao_dados_externo';
+const LAST_NAMES_KEY = 'inspecao_nomes_externo';
 
 let formDataState = loadData(); // Carrega dados do localStorage
 let lastNames = loadLastNames(); // Carrega nomes sugeridos
 let activeWindowName = null;
 
 // VARIÁVEL CRÍTICA: Armazena objetos File/Blob (arquivos de anomalias e assinatura)
+// Estes objetos são perdidos no localStorage, então são mantidos na memória.
 window.fileStorage = {}; 
 
 // Referências DOM
@@ -28,38 +25,48 @@ const submitReportButton = document.getElementById('submitReport');
 const jumpMenu = document.getElementById('jumpMenu');
 const modalClose = document.getElementById('modalClose'); 
 const modalCancel = document.getElementById('modalCancel'); 
-const tagMenuModal = document.getElementById('tagMenuModal');
 
-// Variáveis de Canvas para Assinatura
+// Variáveis de Canvas para Assinatura (para uso interno das funções)
 let signatureCanvas, signatureCtx, isDrawing = false;
 
-// URLs dos WebApps (Mantenha as suas URLs reais)
-const SCRIPT_URL_INTERNA = 'https://script.google.com/macros/s/AKfycbztFYnJDpSu796wPyoInzn1vpIRCNcdlkhUCaNAPzZo7emBBV2E7sP92zZlgA_THH6S/exec'; // EXEMPLO: SUBSTITUA!
-const SCRIPT_URL_EXTERNA = 'https://script.google.com/macros/s/AKfycbwPz26F80W687Y4i8s_f3Qo7N5a3L4R0Vp0R-5S3I0H3E92B/exec'; // EXEMPLO: SUBSTITUA!
-
 
 // =========================================================================
-// 1. UTILITÁRIOS DE PERSISTÊNCIA E LÓGICA DE DADOS
+// 1. UTILITÁRIOS DE PERSISTÊNCIA (NOVAS FUNÇÕES CRÍTICAS)
 // =========================================================================
 
+/**
+ * Carrega o estado do formulário do localStorage.
+ */
 function loadData() {
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored ? JSON.parse(stored) : {};
 }
 
+/**
+ * Salva o estado do formulário no localStorage.
+ */
 function saveData(data) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
+/**
+ * Carrega nomes para sugestão futura (não implementado totalmente no script, mas bom para ter).
+ */
 function loadLastNames() {
     const stored = localStorage.getItem(LAST_NAMES_KEY);
     return stored ? JSON.parse(stored) : { operador: '', supervisor: '' };
 }
 
+/**
+ * Salva nomes para sugestão futura.
+ */
 function saveLastNames(names) {
     localStorage.setItem(LAST_NAMES_KEY, JSON.stringify(names));
 }
 
+/**
+ * Converte string Base64 (da assinatura) em objeto Blob para envio.
+ */
 function base64ToBlob(base64String) {
     const parts = base64String.split(';base64,');
     if (parts.length < 2) return null;
@@ -75,35 +82,17 @@ function base64ToBlob(base64String) {
     return new Blob([uInt8Array], { type: contentType });
 }
 
-function getStatusColorClass(status) {
-    if (!status) return '';
-    const normalized = status.toString().toUpperCase();
-    if (normalized === 'OPE') return 'ope';
-    if (normalized === 'ST-BY' || normalized === 'STBY') return 'stby';
-    if (normalized === 'MNT' || normalized === 'MANUTENCAO' || normalized === 'MANUTENÇÃO') return 'mnt';
-    if (normalized === 'NORMAL') return 'normal';
-    if (normalized === 'FALHA') return 'falha';
-    if (normalized === 'LIGADO') return 'ligado';
-    if (normalized === 'DESLIGADO') return 'desligado';
-    return '';
-}
-
-function getCurrentDate() {
-    return new Date().toISOString().split('T')[0];
-}
-
-function getCurrentTime() {
-    return new Date().toTimeString().slice(0, 5);
-}
 
 // =========================================================================
 // 2. RENDERIZAÇÃO E GRID
 // =========================================================================
 
+/**
+ * Inicializa o grid de janelas e o menu de navegação rápida.
+ */
 function initializeGrid() {
     if (!windowsGrid || typeof FORM_STRUCTURE === 'undefined') return; 
     windowsGrid.innerHTML = '';
-    jumpMenu.innerHTML = '<option value="">Navegação Rápida (Tags)</option>';
     
     Object.keys(FORM_STRUCTURE).forEach(sectionKey => {
         const section = FORM_STRUCTURE[sectionKey];
@@ -131,6 +120,7 @@ function initializeGrid() {
         }
         windowsGrid.appendChild(windowDiv);
         
+        // Inicializa o estado se ainda não existir
         if (!formDataState[sectionKey]) {
              formDataState[sectionKey] = {};
         }
@@ -144,162 +134,73 @@ function initializeGrid() {
 }
 
 /**
- * Lógica para criar o menu de tags no modal (usado na Inspeção Interna).
+ * Navega rapidamente para a seção clicada no menu suspenso.
  */
-function createTagMenu(tags) {
-    if (!tags || tags.length === 0) return null;
-    const menu = document.createElement('div');
-    menu.className = 'tag-menu';
-    const total = tags.length;
-    tags.forEach((tagItem, index) => {
-        const span = document.createElement('span');
-        span.className = 'tag-item';
-        span.textContent = tagItem.tag;
-        // Lógica de cor (mantida da solução interna original)
-        const hue = Math.floor((index / Math.max(total, 1)) * 360);
-        span.style.backgroundColor = `hsl(${hue}, 60%, 50%)`;
-        span.addEventListener('click', function(e) {
-            e.stopPropagation();
-            menu.querySelectorAll('.tag-item').forEach(item => item.classList.remove('active'));
-            span.classList.add('active');
-            const target = document.getElementById(tagItem.id);
-            if (target) {
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                target.classList.add('highlight');
-                setTimeout(() => target.classList.remove('highlight'), 1500);
-            }
-        });
-        menu.appendChild(span);
-    });
-    const first = menu.querySelector('.tag-item');
-    if (first) first.classList.add('active');
-    return menu;
-}
+window.jumpToField = function(sectionKey) {
+    if (sectionKey) {
+        const targetElement = document.getElementById(`card-${sectionKey}`);
+        if (targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            targetElement.classList.add('highlight');
+            setTimeout(() => targetElement.classList.remove('highlight'), 1500);
+        }
+    }
+};
 
 
 // =========================================================================
-// 3. MODAL E GERENCIAMENTO DE CAMPOS (UNIFICADO)
+// 3. MODAL E GERENCIAMENTO DE CAMPOS
 // =========================================================================
 
+/**
+ * Abre o modal de edição para uma seção específica.
+ */
 function openModal(sectionKey) {
     if (!modalOverlay) return; 
     activeWindowName = sectionKey;
     const section = FORM_STRUCTURE[sectionKey];
     modalTitle.textContent = `${section.icon} ${section.title}`;
     formFieldsDiv.innerHTML = '';
-    tagMenuModal.innerHTML = ''; // Limpa o menu de tags
-
-    const jumpTags = [];
 
     // Renderizar campos
     section.fields.forEach(field => {
         const fieldGroup = createFieldElement(field);
         formFieldsDiv.appendChild(fieldGroup);
-        
-        // Coleta tags para o menu interno do modal (se for o formulário interno)
-        if (field.tag && formType === 'interno') {
-             jumpTags.push({ tag: field.tag, id: `group-${field.name}` });
-        }
     });
-
-    // Inserir o menu de tags (apenas para o form interno)
-    if (formType === 'interno' && jumpTags.length > 0) {
-        const menu = createTagMenu(jumpTags);
-        if (menu) {
-            tagMenuModal.appendChild(menu);
-            tagMenuModal.style.display = 'flex';
-        } else {
-            tagMenuModal.style.display = 'none';
-        }
-    } else {
-        tagMenuModal.style.display = 'none';
-    }
 
     // Preencher com dados salvos e inicializar canvas
     loadFormData(sectionKey);
     
+    // Inicializa o Canvas APÓS a renderização no DOM
     const hasSignature = section.fields.some(f => f.type === 'signature');
     if (hasSignature) {
         initializeSignatureCanvas();
     }
     
-    // Preenche campos automáticos (data, hora, nomes sugeridos)
-    initializeAutomaticFields(sectionKey);
-    
     modalOverlay.style.display = 'flex';
 }
 
-function initializeAutomaticFields(windowId) {
-    if (windowId !== 'dados-iniciais') return;
-
-    const dataField = document.getElementById('data');
-    const horaInicialField = document.getElementById('hora_inicial');
-    const operadorField = document.getElementById('operador');
-    const supervisorField = document.getElementById('supervisor');
-
-    // Preenche data e hora inicial se estiverem vazios
-    if (dataField && !dataField.value) {
-        dataField.value = getCurrentDate();
-        handleFieldChange('data', getCurrentDate());
-    }
-    if (horaInicialField && !horaInicialField.value) {
-        horaInicialField.value = getCurrentTime();
-        handleFieldChange('hora_inicial', getCurrentTime());
-    }
-
-    // Preenche nomes sugeridos
-    if (operadorField && lastNames.operador && !operadorField.value) {
-        operadorField.value = lastNames.operador;
-        handleFieldChange('operador', lastNames.operador);
-    }
-    if (supervisorField && lastNames.supervisor && !supervisorField.value) {
-        supervisorField.value = lastNames.supervisor;
-        handleFieldChange('supervisor', lastNames.supervisor);
-    }
-}
-
 /**
- * Função genérica para lidar com a mudança de valor de um campo simples.
+ * Cria o elemento DOM para um campo de formulário.
  */
-function handleFieldChange(fieldName, value) {
-    if (!formDataState[activeWindowName]) {
-        formDataState[activeWindowName] = {};
-    }
-    formDataState[activeWindowName][fieldName] = value;
-    saveData(formDataState);
-    
-    // Atualiza indicador de status se for o caso
-    const fieldConfig = FORM_STRUCTURE[activeWindowName].fields.find(f => f.name === fieldName);
-    if (fieldConfig && fieldConfig.type === 'status') {
-         const indicator = document.getElementById(`indicator-${fieldName}`);
-         if (indicator) {
-             indicator.className = 'status-indicator ' + getStatusColorClass(value);
-         }
-    }
-}
-
 function createFieldElement(field) {
     const fieldGroup = document.createElement('div');
-    fieldGroup.className = 'form-group';
+    fieldGroup.className = 'field-group';
     fieldGroup.id = `group-${field.name}`;
 
-    const currentValue = formDataState[activeWindowName]?.[field.name] || '';
+    const label = document.createElement('label');
+    label.htmlFor = field.name;
+    label.textContent = field.label + (field.unit ? ` (${field.unit})` : '') + (field.required ? ' *' : '');
 
-    const requiredAttr = field.required ? 'required' : '';
-    const readonlyAttr = field.readonly ? 'readonly' : '';
-    const placeholderAttr = field.placeholder ? `placeholder="${field.placeholder}"` : '';
-    
-    let indicatorHTML = '';
-    let unitHTML = field.unit ? `<span class="unit">${field.unit}</span>` : '';
-    let inputHTML = '';
+    let inputElement;
 
-    // TRATAMENTO DA ASSINATURA
+    // TRATAMENTO DO CAMPO DE ASSINATURA
     if (field.type === 'signature') {
         fieldGroup.className += ' signature-container';
         fieldGroup.innerHTML = `
             <label>${field.label} ${field.required ? '*' : ''}</label>
-            <canvas id="signatureCanvas" width="350" height="150" style="border: 1px solid #ccc; touch-action: none; background-color: white;"></canvas>
-            <input type="hidden" id="${field.name}" name="${field.name}" value="${currentValue}">
+            <canvas id="signatureCanvas" name="${field.name}" width="350" height="150" style="border: 1px solid #ccc; touch-action: none; background-color: white;"></canvas>
+            <input type="hidden" id="${field.name}" name="${field.name}">
             <div class="signature-controls">
                 <button type="button" id="clearSignatureButton" class="btn-secondary">Limpar</button>
                 <p class="signature-hint">Desenhe sua assinatura acima.</p>
@@ -307,107 +208,138 @@ function createFieldElement(field) {
         `;
         return fieldGroup;
     } 
-    // TRATAMENTO DE ARQUIVOS
+    // TRATAMENTO DO CAMPO DE ARQUIVO
     else if (field.type === 'file') {
-         // Verifica se existe a flag no localStorage OU se existe o File na memória
-         const fileIsSet = (currentValue && currentValue.startsWith('FILE_SET_')) || window.fileStorage[field.name];
-         const fileStatusText = fileIsSet ? `Arquivo Selecionado: ${window.fileStorage[field.name]?.name || 'sim'}` : 'Nenhum arquivo';
-         const fileStatusClass = fileIsSet ? 'file-set' : 'file-unset';
+         inputElement = document.createElement('input');
+         inputElement.type = 'file';
+         inputElement.id = field.name;
+         inputElement.name = field.name;
+         inputElement.accept = field.accept || 'image/*';
+         if (field.required) inputElement.required = true;
          
-         inputHTML = `
-            <input type="file" id="${field.name}" name="${field.name}" ${requiredAttr} accept="${field.accept || ''}"
-                   onchange="handleFileChange(this, '${field.name}')">
-            <label for="${field.name}" class="custom-file-upload">
-                Escolher Arquivo
-            </label>
-            <span id="status-${field.name}" class="file-status ${fileStatusClass}">${fileStatusText}</span>
-         `;
+         // Adiciona um listener para salvar o File object na memória
+         inputElement.addEventListener('change', (e) => handleFileChange(e.target, field.name));
 
-    }
-    // TRATAMENTO DE STATUS/SELECT
-    else if (field.type === 'select' || field.type === 'status') {
-         if (field.type === 'status') {
-             indicatorHTML = `<span id="indicator-${field.name}" class="status-indicator ${getStatusColorClass(currentValue)}"></span>`;
-         }
-         let optionsHTML = `<option value="" disabled ${!currentValue ? 'selected' : ''}>Selecione...</option>`;
-         field.options.forEach(optionValue => {
-             const selected = optionValue.toString() === currentValue.toString() ? 'selected' : '';
-             optionsHTML += `<option value="${optionValue}" ${selected}>${optionValue}</option>`;
-         });
-         const onChange = field.type === 'status' 
-             ? `onchange="handleFieldChange('${field.name}', this.value)"`
-             : `onchange="handleFieldChange('${field.name}', this.value)"`;
+         const fileContainer = document.createElement('div');
+         fileContainer.className = 'file-input-wrapper';
+         
+         const customLabel = document.createElement('label');
+         customLabel.htmlFor = field.name;
+         customLabel.className = 'custom-file-upload';
+         customLabel.textContent = 'Escolher Arquivo';
+         
+         const statusSpan = document.createElement('span');
+         statusSpan.id = `status-${field.name}`;
+         statusSpan.className = 'file-status';
+         statusSpan.textContent = 'Nenhum arquivo';
 
-         inputHTML = `<select id="${field.name}" name="${field.name}" ${requiredAttr} ${onChange}>${optionsHTML}</select>`;
-    }
-    // TRATAMENTO DE RANGE
-    else if (field.type === 'range') {
-        const rangeMin = field.min || 0;
-        const rangeMax = field.max || 100;
-        const rangeStep = field.step || 1;
-        const displayValue = currentValue === '' ? (field.default || rangeMin) : currentValue;
+         fileContainer.appendChild(inputElement);
+         fileContainer.appendChild(customLabel);
+         fileContainer.appendChild(statusSpan);
 
-        inputHTML = `
-            <div class="range-container">
-                <input type="range" id="${field.name}" name="${field.name}" min="${rangeMin}" max="${rangeMax}" step="${rangeStep}" value="${displayValue}" 
-                       oninput="document.getElementById('display-${field.name}').textContent=this.value; handleFieldChange('${field.name}', this.value)" ${requiredAttr}>
-                <span class="range-value" id="display-${field.name}">${displayValue}</span>
-                ${unitHTML}
-            </div>
-        `;
-        unitHTML = ''; // Limpa a unidade para não duplicar no label
+         fieldGroup.appendChild(label);
+         fieldGroup.appendChild(fileContainer);
+
+         return fieldGroup;
     }
-    // TRATAMENTO DE TEXT, NUMBER, DATE, TIME, TEXTAREA
-    else {
-        const type = field.type === 'textarea' ? 'textarea' : field.type;
-        const tag = field.type === 'textarea' ? 'textarea' : 'input';
-        
-        const onChange = `onchange="handleFieldChange('${field.name}', this.value)"`;
-        
-        if (tag === 'input') {
-            inputHTML = `<input type="${type}" id="${field.name}" name="${field.name}" value="${currentValue}" ${requiredAttr} ${readonlyAttr} ${placeholderAttr} ${onChange}>`;
-        } else {
-            inputHTML = `<textarea id="${field.name}" name="${field.name}" rows="3" ${requiredAttr} ${readonlyAttr} ${placeholderAttr} ${onChange}>${currentValue}</textarea>`;
-        }
+    // TRATAMENTO DE OUTROS CAMPOS (TEXT, NUMBER, SELECT, etc.)
+    else if (field.type === 'textarea') {
+        inputElement = document.createElement('textarea');
+        inputElement.rows = 3;
+    } else if (field.type === 'select' || field.type === 'status') {
+        inputElement = document.createElement('select');
+        // Adicionar opção inicial vazia
+        let defaultSelected = true;
+        inputElement.appendChild(new Option('Selecione...', ''));
+        field.options.forEach(optionValue => {
+            const option = new Option(optionValue, optionValue);
+            inputElement.appendChild(option);
+        });
+    } else {
+        inputElement = document.createElement('input');
+        inputElement.type = field.type;
+        if (field.placeholder) inputElement.placeholder = field.placeholder;
+        if (field.min !== undefined) inputElement.min = field.min;
+        if (field.max !== undefined) inputElement.max = field.max;
+        if (field.step !== undefined) inputElement.step = field.step;
+        if (field.default !== undefined) inputElement.value = field.default; 
     }
     
-    // Estrutura o HTML do grupo de formulário
-    fieldGroup.innerHTML = `
-        <label for="${field.name}">
-            ${indicatorHTML}
-            ${field.label} ${field.unit && field.type !== 'range' ? `(${field.unit})` : ''} ${field.required ? ' *' : ''}
-        </label>
-        <div class="input-wrapper">${inputHTML}</div>
-    `;
+    if (field.required) inputElement.required = true;
+
+    inputElement.id = field.name;
+    inputElement.name = field.name;
+    
+    // Adiciona listener para campos de texto/seleção para salvar no estado (ao sair do campo)
+    inputElement.addEventListener('change', (e) => {
+         formDataState[activeWindowName][field.name] = e.target.value;
+         saveData(formDataState);
+    });
+
+    fieldGroup.appendChild(label);
+    fieldGroup.appendChild(inputElement);
 
     return fieldGroup;
 }
 
-
+/**
+ * Preenche o formulário modal com os dados atualmente salvos.
+ */
 function loadFormData(sectionKey) {
-    // A lógica de preenchimento está embutida no createFieldElement ao usar 'currentValue'
-    // Apenas a assinatura requer carregamento manual no canvas.
+    const data = formDataState[sectionKey] || {};
     
-    // Preenche campos de nomes sugeridos (para dados-iniciais)
-    if (sectionKey === 'dados-iniciais') {
-        const operador = document.getElementById('operador');
-        const supervisor = document.getElementById('supervisor');
-        if (operador && !operador.value) operador.value = lastNames.operador || '';
-        if (supervisor && !supervisor.value) supervisor.value = lastNames.supervisor || '';
-    }
+    // Percorre todos os campos da seção para preencher
+    FORM_STRUCTURE[sectionKey].fields.forEach(field => {
+        const fieldName = field.name;
+        const value = data[fieldName];
+        const fieldElement = document.getElementById(fieldName);
+        
+        if (fieldElement) {
+             // 1. Assinatura: Carrega a string Base64 no input hidden
+            if (field.type === 'signature') {
+                 fieldElement.value = value || '';
+                 // O Canvas é carregado no initializeSignatureCanvas
+                 return;
+            }
+            // 2. Arquivo: Atualiza o status visual
+            else if (field.type === 'file') {
+                 const statusSpan = document.getElementById(`status-${fieldName}`);
+                 // Verifica se existe a flag no localStorage OU se existe o File na memória
+                 const fileIsSet = (value && value.startsWith('FILE_SET_')) || window.fileStorage[fieldName];
+                 if (statusSpan) {
+                     statusSpan.textContent = fileIsSet ? `Arquivo Selecionado: ${window.fileStorage[fieldName]?.name || 'sim'}` : 'Nenhum arquivo';
+                     statusSpan.classList.toggle('file-set', fileIsSet);
+                 }
+                 // O valor do input type="file" não pode ser preenchido por segurança
+                 return;
+            }
+            // 3. Outros campos: Preenche o valor
+            else if (fieldElement.type === 'checkbox') {
+                 fieldElement.checked = value;
+            } else {
+                 fieldElement.value = value || '';
+            }
+        }
+    });
 }
 
+/**
+ * Lida com a mudança no input de arquivo, armazenando o objeto File na memória global.
+ */
 function handleFileChange(inputElement, fieldName) {
     const statusSpan = document.getElementById(`status-${fieldName}`);
     
     if (inputElement.files.length > 0) {
         const file = inputElement.files[0];
+        // 1. Salva o objeto File na memória global (CRÍTICO para o envio)
         window.fileStorage[fieldName] = file;
+        // 2. Salva a flag no formDataState (para persistir a indicação no localStorage)
         formDataState[activeWindowName][fieldName] = `FILE_SET_${fieldName}`;
         
         statusSpan.textContent = `Arquivo Selecionado: ${file.name}`;
         statusSpan.classList.add('file-set');
     } else {
+        // Remove a flag e o objeto se o arquivo for limpo
         delete window.fileStorage[fieldName];
         formDataState[activeWindowName][fieldName] = '';
         
@@ -417,20 +349,19 @@ function handleFileChange(inputElement, fieldName) {
     saveData(formDataState);
 }
 
-
 // =========================================================================
 // 4. LÓGICA DO CANVAS DE ASSINATURA
 // =========================================================================
 
 function initializeSignatureCanvas() {
     signatureCanvas = document.getElementById('signatureCanvas');
-    const signatureField = FORM_STRUCTURE[activeWindowName].fields.find(f => f.type === 'signature');
-    const hiddenInput = document.getElementById(signatureField?.name);
+    const hiddenInput = document.getElementById(FORM_STRUCTURE[activeWindowName].fields.find(f => f.type === 'signature').name);
     
     if (!signatureCanvas || !hiddenInput) return;
     
     signatureCtx = signatureCanvas.getContext('2d');
     
+    // Configurações básicas de desenho
     signatureCtx.lineWidth = 3;
     signatureCtx.lineCap = 'round';
     signatureCtx.strokeStyle = '#000';
@@ -446,12 +377,12 @@ function initializeSignatureCanvas() {
          img.src = hiddenInput.value;
     }
 
-    // Configuração de Eventos
+    // Configuração de Eventos (simplificada e unificada)
     function getPos(e) {
         const rect = signatureCanvas.getBoundingClientRect();
-        const clientX = e.clientX || e.touches?.[0]?.clientX;
-        const clientY = e.clientY || e.touches?.[0]?.clientY;
-        if (clientX === undefined || clientY === undefined) return { x: 0, y: 0 };
+        // Trata eventos de toque e mouse
+        const clientX = e.clientX || e.touches[0].clientX;
+        const clientY = e.clientY || e.touches[0].clientY;
         return { x: clientX - rect.left, y: clientY - rect.top };
     }
 
@@ -477,8 +408,6 @@ function initializeSignatureCanvas() {
              signatureCtx.closePath();
              // Salva a imagem da assinatura no input hidden como Base64
              hiddenInput.value = signatureCanvas.toDataURL();
-             // Salva no estado
-             handleFieldChange(hiddenInput.name, hiddenInput.value);
         }
         e.preventDefault();
     }
@@ -490,18 +419,18 @@ function initializeSignatureCanvas() {
         signatureCtx.fillRect(0, 0, signatureCanvas.width, signatureCanvas.height);
         hiddenInput.value = '';
         // Força a atualização do estado
-        handleFieldChange(hiddenInput.name, '');
-        updateWindowStatus(activeWindowName); 
+        formDataState[activeWindowName][hiddenInput.name] = '';
+        saveData(formDataState);
+        updateWindowStatus(activeWindowName); // Atualiza o status para incompleto se for obrigatório
     }
     
-    // Re-obter o contêiner (para evitar duplicação de listeners)
-    const container = signatureCanvas.parentElement;
-    container.replaceWith(container.cloneNode(true));
-    
+    // Limpeza de Listeners (necessário em reabertura de modal)
+    signatureCanvas.parentElement.replaceWith(signatureCanvas.parentElement.cloneNode(true));
+    signatureCanvas = document.getElementById('signatureCanvas'); // Re-obter o novo elemento
+
     // Re-obter elementos de controle
-    const newContainer = document.getElementById(`group-${signatureField.name}`);
-    signatureCanvas = newContainer.querySelector('canvas');
-    const clearButton = newContainer.querySelector('#clearSignatureButton');
+    const newHiddenInput = document.getElementById(hiddenInput.name);
+    const clearButton = document.getElementById('clearSignatureButton');
     
     // Adicionar Listeners
     signatureCanvas.addEventListener('mousedown', startDrawing);
@@ -520,19 +449,24 @@ function initializeSignatureCanvas() {
 // 5. LÓGICA DE ENVIO E GERENCIAMENTO DE ESTADO
 // =========================================================================
 
+/**
+ * Salva os dados do formulário modal no estado global e localStorage.
+ */
 function saveFormData() {
     const section = FORM_STRUCTURE[activeWindowName];
     let isComplete = true;
 
-    // 1. Coletar dados dos campos e verificar completude
+    // 1. Coletar dados dos campos normais e verificar completude
     section.fields.forEach(field => {
         const element = document.getElementById(field.name);
         
         if (element) {
             let value;
             if (field.type === 'file') {
+                 // Para arquivos, o valor é a flag de que o arquivo existe
                  value = formDataState[activeWindowName][field.name]; 
             } else if (field.type === 'signature') {
+                 // Para assinatura, o valor é a string Base64 do input hidden
                  value = element.value; 
             } else if (element.type === 'checkbox') {
                  value = element.checked;
@@ -540,77 +474,38 @@ function saveFormData() {
                  value = element.value;
             }
             
-            // Salva o valor original na seção
+            // Salva o valor original na seção (ex: imagem_1, assinatura)
             formDataState[activeWindowName][field.name] = value;
             
             // Checar obrigatoriedade
             if (field.required) {
-                if (field.type === 'signature' && (!value || !value.startsWith('data:image'))) {
-                     isComplete = false;
-                } else if (field.type === 'file' && (!value || !value.startsWith('FILE_SET_') || !window.fileStorage[field.name])) {
-                     isComplete = false;
-                } else if (!value) {
-                     isComplete = false;
+                if (!value || (field.type === 'file' && !window.fileStorage[field.name]) ) {
+                    isComplete = false;
                 }
             }
-        } else if (field.required && field.type !== 'signature') { // Assinatura tratada acima
+        } else if (field.required) {
+             // Caso não encontre o elemento (erro de renderização ou campo não é input, ex: assinatura canvas)
              isComplete = false;
         }
     });
-    
-    if (activeWindowName === 'dados-iniciais') {
-         const operador = formDataState['dados-iniciais'].operador;
-         const supervisor = formDataState['dados-iniciais'].supervisor;
-         lastNames.operador = operador || '';
-         lastNames.supervisor = supervisor || '';
-         saveLastNames(lastNames);
-         
-         // Atualiza hora final se for o formulário interno
-         if (formType === 'interno') {
-            const horaFinal = document.getElementById('hora_final');
-            if (horaFinal) {
-                horaFinal.value = getCurrentTime();
-                formDataState['dados-iniciais'].hora_final = horaFinal.value;
-            }
-         }
-    }
     
     // 2. Atualizar Estado e Persistência
     saveData(formDataState);
     
     // 3. Fechar Modal
     modalOverlay.style.display = 'none';
-    updateWindowStatus(activeWindowName); // Re-calcula e atualiza o status visual
+    updateWindowStatus(activeWindowName, isComplete);
     checkAllSectionsComplete();
 }
 
-function checkWindowCompletion(windowId) {
-    const windowConfig = FORM_STRUCTURE[windowId];
-    const currentData = formDataState[windowId] || {};
-    
-    if (!windowConfig) return false;
-    
-    return windowConfig.fields.every(field => {
-        if (field.required) {
-            const value = currentData[field.name];
-            
-            if (field.type === 'signature') {
-                 return value && value.startsWith('data:image');
-            }
-            if (field.type === 'file') {
-                 return value && value.startsWith('FILE_SET_') && window.fileStorage[field.name];
-            }
-            
-            return value !== undefined && value !== null && value !== '';
-        }
-        return true;
-    });
-}
-
+/**
+ * Atualiza o status visual de uma seção no grid.
+ */
 function updateWindowStatus(sectionKey) {
     const card = document.getElementById(`card-${sectionKey}`);
     const statusP = document.getElementById(`status-${sectionKey}`);
     
+    // Recalcula o status de conclusão
     const isComplete = checkWindowCompletion(sectionKey);
     
     if (card && statusP) {
@@ -626,10 +521,45 @@ function updateWindowStatus(sectionKey) {
     }
 }
 
+/**
+ * Verifica se todos os campos obrigatórios de uma janela foram preenchidos.
+ */
+function checkWindowCompletion(windowId) {
+    const windowConfig = FORM_STRUCTURE[windowId];
+    const currentData = formDataState[windowId] || {};
+    
+    if (!windowConfig) return false;
+    
+    return windowConfig.fields.every(field => {
+        if (field.required) {
+            const value = currentData[field.name];
+            
+            if (field.type === 'signature') {
+                 // Verifica se há Base64 (string que começa com data:image)
+                 return value && value.startsWith('data:image');
+            }
+            if (field.type === 'file') {
+                 // Verifica se existe a flag no state E o File object na memória
+                 return value && value.startsWith('FILE_SET_') && window.fileStorage[field.name];
+            }
+            
+            // Outros campos: verifica se o valor não é vazio
+            return value !== undefined && value !== null && value !== '';
+        }
+        return true;
+    });
+}
+
+/**
+ * Atualiza o status de todas as janelas.
+ */
 function updateAllWindowStatuses() {
      Object.keys(FORM_STRUCTURE).forEach(updateWindowStatus);
 }
 
+/**
+ * Verifica se todas as seções estão completas para habilitar o botão de envio.
+ */
 function checkAllSectionsComplete() {
     const allComplete = Object.keys(FORM_STRUCTURE).every(key => checkWindowCompletion(key));
 
@@ -641,6 +571,9 @@ function checkAllSectionsComplete() {
     }
 }
 
+/**
+ * Lida com o envio final de todos os dados e arquivos para o Apps Script.
+ */
 async function submitReport() {
     if (submitReportButton.disabled) return;
 
@@ -648,12 +581,13 @@ async function submitReport() {
         return;
     }
 
+    // Assume-se que você tem uma função showSpinner/hideSpinner definida em 'spinner.js'
     if (typeof showSpinner === 'function') {
         showSpinner('Enviando relatório e arquivos. Aguarde...');
     }
-    
-    const url = formType === 'interno' ? SCRIPT_URL_INTERNA : SCRIPT_URL_EXTERNA;
+
     const finalFormData = new FormData();
+    const dataToSend = {}; // Objeto para armazenar dados mapeados
 
     // 1. Coletar e mapear todos os dados de texto e arquivos
     Object.keys(FORM_STRUCTURE).forEach(sectionKey => {
@@ -664,11 +598,11 @@ async function submitReport() {
             const fieldName = field.name;
             let dataName = fieldName;
 
-            // Mapeamento CRÍTICO do nome do campo de anomalia (para o Apps Script)
+            // Mapeamento CRÍTICO do nome do campo de anomalia (conforme o Apps Script)
             if (fieldName.startsWith('imagem_')) {
                 dataName = 'foto_anomalia' + fieldName.split('_')[1];
             }
-
+            
             const value = sectionData[fieldName];
 
             if (field.type === 'file' && value && value.startsWith('FILE_SET_')) {
@@ -681,10 +615,12 @@ async function submitReport() {
                 // 1b. Tratar Assinatura (converter Base64 para Blob)
                 const signatureBlob = base64ToBlob(value);
                 if (signatureBlob) {
-                     finalFormData.append(fieldName, signatureBlob, `${fieldName}.png`); 
+                     // Adiciona o nome do arquivo para o Apps Script
+                     finalFormData.append(dataName, signatureBlob, `${dataName}.png`); 
                 }
             } else {
-                // 1c. Tratar dados de texto
+                // 1c. Tratar dados de texto (usa o nome mapeado/original)
+                // Usamos o valor salvo, exceto para arquivos que já foram tratados acima.
                 if (value && !value.startsWith('FILE_SET_')) { 
                     finalFormData.append(dataName, value);
                 }
@@ -694,6 +630,8 @@ async function submitReport() {
 
     // 2. Enviar para o Apps Script
     try {
+        // *** SUBSTITUA AQUI COM SEU URL REAL DO APPS SCRIPT ***
+        const url = 'https://script.google.com/macros/s/AKfycbwPz26F80W687Y4i8s_f3Qo7N5a3L4R0Vp0R-5S3I0H3E92B/exec'; 
         const response = await fetch(url, {
             method: 'POST',
             body: finalFormData,
@@ -729,15 +667,18 @@ async function submitReport() {
 
 document.addEventListener('DOMContentLoaded', () => {
     
-    if (typeof FORM_STRUCTURE === 'undefined') {
-        console.error("FORM_STRUCTURE não está definida. Verifique se o arquivo de estrutura de dados está carregado antes do script.js.");
-        return;
-    }
-    
     // 1. Inicia o grid principal
     initializeGrid();
     
-    // 2. Eventos do Modal
+    // 2. Define o valor inicial da data
+    const today = new Date().toISOString().split('T')[0];
+    const dataField = FORM_STRUCTURE['dados-iniciais']?.fields.find(f => f.name === 'data');
+    if (dataField && !formDataState['dados-iniciais']?.data) {
+         // Define o valor padrão apenas se o estado estiver vazio (para a data inicial)
+        formDataState['dados-iniciais'].data = today;
+    }
+    
+    // 3. Eventos do Modal
     if (modalClose) modalClose.addEventListener('click', () => modalOverlay.style.display = 'none');
     if (modalCancel) modalCancel.addEventListener('click', () => modalOverlay.style.display = 'none');
     
@@ -748,26 +689,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // 3. Evento de envio final
+    // 4. Evento de envio final
     if (submitReportButton) {
         submitReportButton.addEventListener('click', submitReport);
     }
     
-    // 4. Evento do Jump Menu (principal)
+    // 5. Evento do Jump Menu
     if (jumpMenu) {
-        jumpMenu.addEventListener('change', (e) => {
-            if (e.target.value) {
-                const targetElement = document.getElementById(`card-${e.target.value}`);
-                if (targetElement) {
-                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    // Adicionar um destaque visual temporário se desejar
-                    targetElement.classList.add('highlight');
-                    setTimeout(() => targetElement.classList.remove('highlight'), 1500);
-                }
-            }
-        });
+        jumpMenu.addEventListener('change', (e) => jumpToField(e.target.value));
     }
 
-    // 5. Atualiza o status inicial do botão de envio
+    // 6. Atualiza o status inicial do botão de envio
     checkAllSectionsComplete();
 });
